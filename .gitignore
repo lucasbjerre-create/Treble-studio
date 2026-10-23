@@ -21,6 +21,10 @@ pnpm-debug.log*
 # wrangler local state
 .wrangler/
 
+# Playwright output
+test-results/
+playwright-report/
+
 # generated binding types, regenerate with `npm run generate-types`
 worker-configuration.d.ts
 
