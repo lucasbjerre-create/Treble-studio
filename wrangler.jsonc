@@ -11,24 +11,25 @@
 	"observability": {
 		"enabled": true
 	},
-	// Local dev binding. database_id is a placeholder: wrangler dev keys its
-	// local SQLite file off this string, so it works before any real D1
-	// database exists. Remote commands (db:migrate:remote, deploy) will fail
-	// until this is replaced with the id from `npx wrangler d1 create`.
+	// Local dev / default. Points at the one real D1 database and R2 bucket
+	// created 2026-10-23 (npx wrangler d1 create / r2 bucket create).
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "exchange-site-db",
-			"database_id": "REPLACE_WITH_D1_DATABASE_ID"
+			"database_id": "3f689de0-1fe5-4f87-8d88-fe3739896015"
 		}
 	],
 	"r2_buckets": [
 		{
 			"binding": "MEDIA",
-			"bucket_name": "exchange-site-media-replace-me"
+			"bucket_name": "exchange-site-media"
 		}
 	],
 	"env": {
+		// No separate preview D1/R2 resources exist yet. These placeholders
+		// stay until a real preview database and bucket are created - swap
+		// them in then, the same way production was wired up below.
 		"preview": {
 			"d1_databases": [
 				{
@@ -49,13 +50,13 @@
 				{
 					"binding": "DB",
 					"database_name": "exchange-site-db",
-					"database_id": "REPLACE_WITH_D1_DATABASE_ID"
+					"database_id": "3f689de0-1fe5-4f87-8d88-fe3739896015"
 				}
 			],
 			"r2_buckets": [
 				{
 					"binding": "MEDIA",
-					"bucket_name": "exchange-site-media-replace-me"
+					"bucket_name": "exchange-site-media"
 				}
 			]
 		}
