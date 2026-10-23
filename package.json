@@ -24,11 +24,13 @@
     "@astrojs/react": "^7.1.1",
     "@fontsource/inter": "^5.3.0",
     "@fontsource/source-serif-4": "^5.3.1",
+    "@turf/great-circle": "^7.4.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "astro": "^7.4.2",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
+    "maplibre-gl": "^6.15.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "wrangler": "^4.152.0"

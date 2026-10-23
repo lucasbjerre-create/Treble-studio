@@ -3,12 +3,16 @@ export interface Dictionary {
 	nav: {
 		journal: string;
 		archive: string;
+		explore: string;
 	};
 	home: {
 		latestEntry: string;
 		currentChapter: string;
 		exploreMap: string;
-		comingSoon: string;
+	};
+	explore: {
+		title: string;
+		nonMapAlternative: string;
 	};
 	entry: {
 		previous: string;
@@ -40,13 +44,17 @@ export const en: Dictionary = {
 	siteTitle: 'Exchange year',
 	nav: {
 		journal: 'Journal',
-		archive: 'Archive'
+		archive: 'Archive',
+		explore: 'Explore'
 	},
 	home: {
 		latestEntry: 'Latest entry',
 		currentChapter: 'Current chapter',
-		exploreMap: 'Explore map',
-		comingSoon: '(coming soon)'
+		exploreMap: 'Explore map'
+	},
+	explore: {
+		title: 'Explore the route',
+		nonMapAlternative: 'Prefer no map? Read the journal instead.'
 	},
 	entry: {
 		previous: 'Older',

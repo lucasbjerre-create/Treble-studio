@@ -4,13 +4,17 @@ export const da: Dictionary = {
 	siteTitle: 'Udvekslingsår',
 	nav: {
 		journal: 'Journal',
-		archive: 'Arkiv'
+		archive: 'Arkiv',
+		explore: 'Udforsk'
 	},
 	home: {
 		latestEntry: 'Seneste indlæg',
 		currentChapter: 'Nuværende kapitel',
-		exploreMap: 'Udforsk kortet',
-		comingSoon: '(kommer snart)'
+		exploreMap: 'Udforsk kortet'
+	},
+	explore: {
+		title: 'Udforsk ruten',
+		nonMapAlternative: 'Foretrækker du intet kort? Læs journalen i stedet.'
 	},
 	entry: {
 		previous: 'Ældre',
