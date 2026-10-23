@@ -1,0 +1,157 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Media from '../../components/Media.astro';
+import { getDb } from '../../db/client';
+import {
+	getEntryTranslation,
+	getPersonBySlug,
+	listChaptersForPerson,
+	listEntriesForViewer,
+	listMediaForEntry
+} from '../../db/queries';
+import { PRIMARY_PERSON_SLUG } from '../../config/site';
+import { isLocale, t, type Locale } from '../../i18n/t';
+import { currentChapter } from '../../lib/chapters';
+import { resolveEntryText } from '../../lib/translation';
+
+const { lang: rawLang } = Astro.params;
+if (!rawLang || !isLocale(rawLang)) {
+	return new Response('Not found', { status: 404 });
+}
+const lang = rawLang as Locale;
+const dict = t(lang);
+
+const db = getDb();
+const now = new Date().toISOString();
+
+const person = await getPersonBySlug(db, 'public', PRIMARY_PERSON_SLUG);
+if (!person) {
+	return new Response('Not found', { status: 404 });
+}
+
+const entries = await listEntriesForViewer(db, 'public', now, { personId: person.id });
+const latest = entries[0];
+
+const chapters = await listChaptersForPerson(db, person.id);
+const chapter = currentChapter(chapters, now.slice(0, 10));
+
+let resolvedTitle = '';
+let resolvedDek: string | null = null;
+let media: Awaited<ReturnType<typeof listMediaForEntry>> = [];
+
+if (latest) {
+	const translation = await getEntryTranslation(db, latest.id, lang);
+	const resolved = resolveEntryText(
+		{ originalLang: latest.originalLang, title: latest.title, dek: latest.dek, bodyMd: latest.bodyMd },
+		translation,
+		lang
+	);
+	resolvedTitle = resolved.title;
+	resolvedDek = resolved.dek;
+	media = await listMediaForEntry(db, 'public', latest.id, now);
+}
+---
+
+<BaseLayout lang={lang} title={dict.siteTitle}>
+	<main class="home">
+		{chapter && <p class="chapter-banner">{dict.home.currentChapter}: {chapter.title}</p>}
+
+		<svg class="route-schematic" viewBox="0 0 600 80" role="img" aria-label="Copenhagen to Chapel Hill to Singapore to home">
+			<line x1="30" y1="40" x2="570" y2="40" stroke="var(--color-border)" stroke-width="2" />
+			<circle cx="30" cy="40" r="6" fill="var(--color-muted)" />
+			<circle cx="220" cy="40" r="6" fill="var(--color-accent)" />
+			<circle cx="410" cy="40" r="6" fill="var(--color-border)" />
+			<circle cx="570" cy="40" r="6" fill="var(--color-border)" />
+			<text x="30" y="68" font-size="12" fill="var(--color-muted)" text-anchor="middle">CPH</text>
+			<text x="220" y="68" font-size="12" fill="var(--color-ink)" text-anchor="middle">UNC</text>
+			<text x="410" y="68" font-size="12" fill="var(--color-muted)" text-anchor="middle">SMU</text>
+			<text x="570" y="68" font-size="12" fill="var(--color-muted)" text-anchor="middle">Home</text>
+		</svg>
+
+		{
+			latest ? (
+				<section class="latest">
+					<p class="eyebrow">{dict.home.latestEntry}</p>
+					<a class="latest-link" href={`/${lang}/${person.slug}/${latest.slug}`}>
+						<h2>{resolvedTitle}</h2>
+						{resolvedDek && <p class="dek">{resolvedDek}</p>}
+					</a>
+					{media[0] && (
+						<Media
+							kind={media[0].kind}
+							keyThumb={media[0].keyThumb}
+							keyDisplay={media[0].keyDisplay}
+							keyLarge={media[0].keyLarge}
+							posterKey={media[0].posterKey}
+							width={media[0].width}
+							height={media[0].height}
+							caption={null}
+							altText={media[0].altText}
+						/>
+					)}
+				</section>
+			) : (
+				<p>{dict.common.noEntries}</p>
+			)
+		}
+
+		<p class="explore-map">{dict.home.exploreMap} <span class="muted">{dict.home.comingSoon}</span></p>
+	</main>
+</BaseLayout>
+
+<style>
+	.home {
+		max-width: 38rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--space-4) var(--space-12);
+	}
+
+	.chapter-banner {
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+		color: var(--color-muted);
+		margin: 0 0 var(--space-6);
+	}
+
+	.route-schematic {
+		width: 100%;
+		height: auto;
+		margin: 0 0 var(--space-8);
+	}
+
+	.eyebrow {
+		font-family: var(--font-sans);
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-muted);
+		margin: 0 0 var(--space-2);
+	}
+
+	.latest-link {
+		color: var(--color-ink);
+		text-decoration: none;
+	}
+
+	.latest-link h2 {
+		font-family: var(--font-serif);
+		font-size: var(--text-xl);
+		margin: 0 0 var(--space-2);
+	}
+
+	.dek {
+		font-family: var(--font-sans);
+		color: var(--color-muted);
+		margin: 0 0 var(--space-4);
+	}
+
+	.explore-map {
+		margin-top: var(--space-8);
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+	}
+
+	.muted {
+		color: var(--color-muted);
+	}
+</style>

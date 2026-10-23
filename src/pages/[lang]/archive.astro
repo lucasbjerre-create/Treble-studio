@@ -1,0 +1,170 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getDb } from '../../db/client';
+import { getPersonBySlug, listChaptersForPerson, listEntriesForViewer, listEntryTranslations } from '../../db/queries';
+import { PRIMARY_PERSON_SLUG } from '../../config/site';
+import { isLocale, t, type Locale } from '../../i18n/t';
+import { groupEntriesByChapterAndMonth } from '../../lib/grouping';
+import { resolveEntryText } from '../../lib/translation';
+
+const { lang: rawLang } = Astro.params;
+if (!rawLang || !isLocale(rawLang)) {
+	return new Response('Not found', { status: 404 });
+}
+const lang = rawLang as Locale;
+const dict = t(lang);
+
+const categoryParam = Astro.url.searchParams.get('category');
+const category = categoryParam === 'life' || categoryParam === 'school' || categoryParam === 'trip' ? categoryParam : undefined;
+
+const db = getDb();
+const now = new Date().toISOString();
+
+const person = await getPersonBySlug(db, 'public', PRIMARY_PERSON_SLUG);
+if (!person) {
+	return new Response('Not found', { status: 404 });
+}
+
+const entries = await listEntriesForViewer(db, 'public', now, { personId: person.id, category });
+const translations = await listEntryTranslations(
+	db,
+	entries.map((e) => e.id),
+	lang
+);
+const entriesForDisplay = entries.map((entry) => ({
+	...entry,
+	displayTitle: resolveEntryText(
+		{ originalLang: entry.originalLang, title: entry.title, dek: entry.dek, bodyMd: entry.bodyMd },
+		translations.get(entry.id),
+		lang
+	).title
+}));
+const chapters = await listChaptersForPerson(db, person.id);
+const chapterTitles = new Map(chapters.map((c) => [c.id, c.title]));
+const groups = groupEntriesByChapterAndMonth(entriesForDisplay);
+
+const filters: Array<{ value: 'life' | 'school' | 'trip' | undefined; label: string }> = [
+	{ value: undefined, label: dict.archive.filterAll },
+	{ value: 'life', label: dict.archive.filterLife },
+	{ value: 'school', label: dict.archive.filterSchool },
+	{ value: 'trip', label: dict.archive.filterTrip }
+];
+
+function filterHref(value: 'life' | 'school' | 'trip' | undefined): string {
+	return value ? `/${lang}/archive?category=${value}` : `/${lang}/archive`;
+}
+---
+
+<BaseLayout lang={lang} title={`${dict.archive.title} - ${dict.siteTitle}`} altPath={`/${lang === 'en' ? 'da' : 'en'}/archive${category ? `?category=${category}` : ''}`}>
+	<main class="archive">
+		<h1>{dict.archive.title}</h1>
+
+		<nav class="filters">
+			{
+				filters.map((f) => (
+					<a href={filterHref(f.value)} aria-current={f.value === category ? 'page' : undefined}>
+						{f.label}
+					</a>
+				))
+			}
+		</nav>
+
+		{
+			groups.length === 0 ? (
+				<p>{dict.common.noEntries}</p>
+			) : (
+				groups.map((group) => (
+					<section class="chapter-group">
+						<h2>{group.chapterId !== null ? (chapterTitles.get(group.chapterId) ?? '') : ''}</h2>
+						{group.months.map((month) => (
+							<div class="month-group">
+								<h3>{month.monthKey}</h3>
+								<ul>
+									{month.entries.map((entry) => (
+										<li>
+											<a href={`/${lang}/${person.slug}/${entry.slug}`}>{entry.displayTitle}</a>
+										</li>
+									))}
+								</ul>
+							</div>
+						))}
+					</section>
+				))
+			)
+		}
+	</main>
+</BaseLayout>
+
+<style>
+	.archive {
+		max-width: 38rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--space-4) var(--space-12);
+	}
+
+	h1 {
+		font-family: var(--font-serif);
+		font-size: var(--text-2xl);
+		margin: 0 0 var(--space-6);
+	}
+
+	.filters {
+		display: flex;
+		gap: var(--space-4);
+		margin-bottom: var(--space-8);
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+	}
+
+	.filters a {
+		color: var(--color-muted);
+		text-decoration: none;
+		min-height: 44px;
+		display: flex;
+		align-items: center;
+	}
+
+	.filters a[aria-current='page'] {
+		color: var(--color-ink);
+		font-weight: 600;
+	}
+
+	.chapter-group {
+		margin-bottom: var(--space-8);
+	}
+
+	.chapter-group h2 {
+		font-family: var(--font-serif);
+		font-size: var(--text-lg);
+		margin: 0 0 var(--space-4);
+	}
+
+	.month-group h3 {
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+		color: var(--color-muted);
+		font-weight: 600;
+		margin: 0 0 var(--space-2);
+	}
+
+	.month-group ul {
+		list-style: none;
+		margin: 0 0 var(--space-4);
+		padding: 0;
+	}
+
+	.month-group li a {
+		font-family: var(--font-serif);
+		font-size: var(--text-base);
+		color: var(--color-ink);
+		text-decoration: none;
+		display: block;
+		min-height: 44px;
+		display: flex;
+		align-items: center;
+	}
+
+	.month-group li a:hover {
+		color: var(--color-accent);
+	}
+</style>

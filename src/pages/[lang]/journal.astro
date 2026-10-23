@@ -1,0 +1,183 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Media from '../../components/Media.astro';
+import { getDb } from '../../db/client';
+import {
+	getAdjacentEntries,
+	getEntryBySlugForViewer,
+	getEntryTranslation,
+	getPersonBySlug,
+	getPlaceById,
+	listEntriesForViewer,
+	listMediaForEntry
+} from '../../db/queries';
+import { PRIMARY_PERSON_SLUG } from '../../config/site';
+import { isLocale, t, type Locale } from '../../i18n/t';
+import { resolveEntryText } from '../../lib/translation';
+import { paragraphsFrom } from '../../lib/text';
+
+const { lang: rawLang } = Astro.params;
+if (!rawLang || !isLocale(rawLang)) {
+	return new Response('Not found', { status: 404 });
+}
+const lang = rawLang as Locale;
+const dict = t(lang);
+
+const db = getDb();
+const now = new Date().toISOString();
+
+const person = await getPersonBySlug(db, 'public', PRIMARY_PERSON_SLUG);
+if (!person) {
+	return new Response('Not found', { status: 404 });
+}
+
+const entrySlugParam = Astro.url.searchParams.get('entry');
+
+const entry = entrySlugParam
+	? await getEntryBySlugForViewer(db, 'public', person.slug, entrySlugParam, now)
+	: (await listEntriesForViewer(db, 'public', now, { personId: person.id }))[0];
+
+if (entrySlugParam && !entry) {
+	return new Response('Not found', { status: 404 });
+}
+
+let media: Awaited<ReturnType<typeof listMediaForEntry>> = [];
+let adjacent: { prev?: { slug: string }; next?: { slug: string } } = {};
+let resolvedTitle = '';
+let resolvedDek: string | null = null;
+let paragraphs: string[] = [];
+let translationNote: string | null = null;
+let placeLabel: string | null = null;
+
+if (entry) {
+	const [translation, mediaRows, adjacentRows, place] = await Promise.all([
+		getEntryTranslation(db, entry.id, lang),
+		listMediaForEntry(db, 'public', entry.id, now),
+		getAdjacentEntries(db, 'public', entry.personId, entry.occurredAt, now),
+		entry.placeId ? getPlaceById(db, 'public', entry.placeId) : Promise.resolve(undefined)
+	]);
+
+	media = mediaRows;
+	adjacent = adjacentRows;
+	placeLabel = place?.label ?? null;
+
+	const resolved = resolveEntryText(
+		{ originalLang: entry.originalLang, title: entry.title, dek: entry.dek, bodyMd: entry.bodyMd },
+		translation,
+		lang
+	);
+	resolvedTitle = resolved.title;
+	resolvedDek = resolved.dek;
+	paragraphs = paragraphsFrom(resolved.bodyMd);
+	translationNote = resolved.isFallback ? dict.entry.translationNote : null;
+}
+
+const altPath = `/${lang === 'en' ? 'da' : 'en'}/journal${entry ? `?entry=${entry.slug}` : ''}`;
+---
+
+<BaseLayout lang={lang} title={`${dict.journal.title} - ${dict.siteTitle}`} altPath={altPath}>
+	<main class="journal">
+		{
+			entry ? (
+				<>
+					{placeLabel && <p class="place">{placeLabel}</p>}
+					<h1>{resolvedTitle}</h1>
+					{resolvedDek && <p class="dek">{resolvedDek}</p>}
+					{paragraphs.map((p) => (
+						<p class="body">{p}</p>
+					))}
+					{media.map((m) => (
+						<Media
+							kind={m.kind}
+							keyThumb={m.keyThumb}
+							keyDisplay={m.keyDisplay}
+							keyLarge={m.keyLarge}
+							posterKey={m.posterKey}
+							width={m.width}
+							height={m.height}
+							caption={m.caption}
+							altText={m.altText}
+						/>
+					))}
+					{translationNote && <p class="translation-note">{translationNote}</p>}
+				</>
+			) : (
+				<p>{dict.common.noEntries}</p>
+			)
+		}
+
+		<nav class="pager">
+			{adjacent.prev ? <a href={`/${lang}/journal?entry=${adjacent.prev.slug}`}>{dict.journal.older}</a> : <span />}
+			{adjacent.next ? <a href={`/${lang}/journal?entry=${adjacent.next.slug}`}>{dict.journal.newer}</a> : <span />}
+		</nav>
+	</main>
+</BaseLayout>
+
+<style>
+	.journal {
+		max-width: 34rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--space-4) var(--space-12);
+		font-size: var(--text-lg);
+	}
+
+	.place {
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+		color: var(--color-muted);
+		margin: 0 0 var(--space-2);
+	}
+
+	h1 {
+		font-family: var(--font-serif);
+		font-size: var(--text-xl);
+		margin: 0 0 var(--space-3);
+	}
+
+	.dek {
+		font-family: var(--font-sans);
+		color: var(--color-muted);
+		margin: 0 0 var(--space-4);
+	}
+
+	.body {
+		font-family: var(--font-serif);
+		line-height: 1.6;
+		margin: 0 0 var(--space-4);
+	}
+
+	.translation-note {
+		font-family: var(--font-sans);
+		font-size: var(--text-xs);
+		color: var(--color-muted);
+		font-style: italic;
+	}
+
+	.pager {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--space-4);
+		margin-top: var(--space-8);
+		padding-top: var(--space-4);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.pager a {
+		font-family: var(--font-sans);
+		font-size: var(--text-lg);
+		color: var(--color-ink);
+		text-decoration: none;
+		min-height: 44px;
+		min-width: 44px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--space-2) var(--space-4);
+		border: 1px solid var(--color-border);
+	}
+
+	.pager a:hover {
+		color: var(--color-accent);
+		border-color: var(--color-accent);
+	}
+</style>

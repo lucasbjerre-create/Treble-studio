@@ -1,0 +1,91 @@
+---
+import Media from '../Media.astro';
+import type { EntryForDisplay, MediaForDisplay } from '../../lib/composition';
+import { paragraphsFrom } from '../../lib/text';
+
+interface Props {
+	entry: EntryForDisplay;
+	media: MediaForDisplay[];
+}
+
+const { entry, media } = Astro.props;
+const paragraphs = paragraphsFrom(entry.bodyMd);
+const firstMedia = media[0];
+const restMedia = media.slice(1);
+---
+
+<article class="standard-story">
+	<h1 class="title">{entry.title}</h1>
+	{entry.dek && <p class="dek">{entry.dek}</p>}
+	{
+		firstMedia && (
+			<Media
+				kind={firstMedia.kind}
+				keyThumb={firstMedia.keyThumb}
+				keyDisplay={firstMedia.keyDisplay}
+				keyLarge={firstMedia.keyLarge}
+				posterKey={firstMedia.posterKey}
+				width={firstMedia.width}
+				height={firstMedia.height}
+				caption={firstMedia.caption}
+				altText={firstMedia.altText}
+			/>
+		)
+	}
+	<div class="body">
+		{paragraphs.map((p) => <p>{p}</p>)}
+	</div>
+	{
+		restMedia.map((m) => (
+			<Media
+				kind={m.kind}
+				keyThumb={m.keyThumb}
+				keyDisplay={m.keyDisplay}
+				keyLarge={m.keyLarge}
+				posterKey={m.posterKey}
+				width={m.width}
+				height={m.height}
+				caption={m.caption}
+				altText={m.altText}
+			/>
+		))
+	}
+	{entry.translationNote && <p class="translation-note">{entry.translationNote}</p>}
+</article>
+
+<style>
+	.standard-story {
+		max-width: 38rem;
+	}
+
+	.title {
+		font-family: var(--font-serif);
+		font-size: var(--text-xl);
+		margin: 0 0 var(--space-2);
+	}
+
+	.dek {
+		font-family: var(--font-sans);
+		font-size: var(--text-base);
+		color: var(--color-muted);
+		margin: 0 0 var(--space-4);
+	}
+
+	.body {
+		font-family: var(--font-serif);
+		font-size: var(--text-base);
+		line-height: 1.6;
+		margin: var(--space-4) 0;
+	}
+
+	.body p {
+		margin: 0 0 var(--space-4);
+	}
+
+	.translation-note {
+		font-family: var(--font-sans);
+		font-size: var(--text-xs);
+		color: var(--color-muted);
+		font-style: italic;
+	}
+</style>

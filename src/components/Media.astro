@@ -1,0 +1,68 @@
+---
+interface Props {
+	kind: 'photo' | 'clip' | 'audio' | 'pdf';
+	keyThumb: string | null;
+	keyDisplay: string | null;
+	keyLarge: string | null;
+	posterKey: string | null;
+	width: number | null;
+	height: number | null;
+	caption: string | null;
+	altText: string | null;
+}
+
+const { kind, keyDisplay, keyLarge, posterKey, width, height, caption, altText } = Astro.props;
+
+// key_* are resolved as direct src paths for now (the milestone-2 fixtures
+// are plain /fixtures/ paths under public/). Once uploads and R2 serving
+// exist (milestones 4-5), this resolves through a viewer-checked Worker
+// route instead - see src/db/seed.sql's note on the same gap.
+const aspectRatio = width && height ? `${width} / ${height}` : '4 / 3';
+---
+
+<figure class="media" style={`aspect-ratio: ${aspectRatio}`}>
+	{
+		kind === 'photo' && keyDisplay && (
+			<img
+				src={keyDisplay}
+				srcset={`${keyDisplay} 480w, ${keyDisplay} 1280w, ${keyLarge ?? keyDisplay} 2048w`}
+				sizes="(min-width: 768px) 60vw, 100vw"
+				alt={altText ?? ''}
+				loading="lazy"
+			/>
+		)
+	}
+	{
+		kind === 'clip' && keyDisplay && (
+			// Muted by default, native controls only - no autoplay, no sound
+			// unless the viewer starts it (spec section 6).
+			<video src={keyDisplay} poster={posterKey ?? undefined} muted playsinline controls />
+		)
+	}
+	{caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+	.media {
+		width: 100%;
+		margin: 0;
+		background: var(--color-border);
+		display: flex;
+		flex-direction: column;
+	}
+
+	.media img,
+	.media video {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	figcaption {
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+		color: var(--color-muted);
+		padding: var(--space-2) 0 0;
+	}
+</style>

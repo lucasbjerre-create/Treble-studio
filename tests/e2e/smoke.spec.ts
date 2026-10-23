@@ -5,7 +5,7 @@ test('redirects to /en/ by default', async ({ page }) => {
 	await expect(page).toHaveURL(/\/en\/$/);
 });
 
-test('serves the Danish placeholder at /da/', async ({ page }) => {
+test('serves the Danish homepage at /da/', async ({ page }) => {
 	await page.goto('/da/');
 	await expect(page.locator('html')).toHaveAttribute('lang', 'da');
 });

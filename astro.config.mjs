@@ -15,12 +15,10 @@ export default defineConfig({
   adapter: cloudflare({
     imageService: 'passthrough'
   }),
-  integrations: [react()],
-  i18n: {
-    locales: ['en', 'da'],
-    defaultLocale: 'en',
-    routing: {
-      prefixDefaultLocale: true
-    }
-  }
+  integrations: [react()]
+  // No `i18n` config: Astro's built-in i18n routing is folder-based only,
+  // which would force every dynamic page (entry, archive, journal) to be
+  // duplicated under both en/ and da/ folders. `lang` is instead a plain
+  // dynamic route param like any other - same /en/ and /da/ URLs, one
+  // file per page. See src/pages/[lang]/.
 });

@@ -53,6 +53,23 @@
 	}
 }
 
+/* Minimal reset: browser UA defaults (figure's 40px margin especially) cause
+   silent overflow on narrow viewports otherwise. */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body,
+h1,
+h2,
+h3,
+p,
+figure {
+	margin: 0;
+}
+
 body {
 	background: var(--color-paper);
 	color: var(--color-ink);

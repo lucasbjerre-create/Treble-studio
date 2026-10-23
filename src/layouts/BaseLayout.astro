@@ -1,13 +1,18 @@
 ---
 import '../styles/tokens.css';
-import type { Locale } from '../i18n/t';
+import { t, type Locale } from '../i18n/t';
 
 interface Props {
 	lang: Locale;
 	title: string;
+	/** Path (with any query string) for this same page in the other language. Defaults to that language's homepage. */
+	altPath?: string;
 }
 
-const { lang, title } = Astro.props;
+const { lang, title, altPath } = Astro.props;
+const dict = t(lang);
+const otherLang: Locale = lang === 'en' ? 'da' : 'en';
+const otherLangHref = altPath ?? `/${otherLang}/`;
 ---
 
 <!doctype html>
@@ -19,6 +24,52 @@ const { lang, title } = Astro.props;
 		<title>{title}</title>
 	</head>
 	<body>
+		<header class="site-header">
+			<a class="site-title" href={`/${lang}/`}>{dict.siteTitle}</a>
+			<nav>
+				<a href={`/${lang}/journal`}>{dict.nav.journal}</a>
+				<a href={`/${lang}/archive`}>{dict.nav.archive}</a>
+				<a href={otherLangHref} lang={otherLang} hreflang={otherLang}>{dict.languageToggle[otherLang]}</a>
+			</nav>
+		</header>
 		<slot />
 	</body>
 </html>
+
+<style>
+	.site-header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--space-4);
+		padding: var(--space-4) var(--space-4);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.site-title {
+		font-family: var(--font-serif);
+		font-size: var(--text-lg);
+		color: var(--color-ink);
+		text-decoration: none;
+	}
+
+	nav {
+		display: flex;
+		gap: var(--space-4);
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+	}
+
+	nav a {
+		color: var(--color-ink);
+		text-decoration: none;
+		min-height: 44px;
+		display: flex;
+		align-items: center;
+	}
+
+	nav a:hover {
+		color: var(--color-accent);
+	}
+</style>

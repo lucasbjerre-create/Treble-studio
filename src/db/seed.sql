@@ -41,8 +41,8 @@ INSERT OR IGNORE INTO entries (
 ) VALUES
 	(
 		1, 1, 1, 1, 1, 'leaving-copenhagen', 'milestone', 'life', 'leaving',
-		'published', 'public', 'da', 'Tak for nu, Kobenhavn', 'Sidste dag hjemme.',
-		'Sidste pakning, sidste kop kaffe ved koekkenbordet, saa lufthavnen.',
+		'published', 'public', 'da', 'Tak for nu, København', 'Sidste dag hjemme.',
+		'Sidste pakning, sidste kop kaffe ved køkkenbordet, så lufthavnen.',
 		'2026-08-15T09:00:00.000Z', NULL, 'Europe/Copenhagen', '2026-08-17T09:00:00.000Z',
 		'not_needed', 1, 0, NULL, '2026-08-15T09:00:00.000Z', '2026-08-15T09:00:00.000Z',
 		'2026-08-17T09:00:00.000Z'
@@ -112,3 +112,34 @@ VALUES (
 
 INSERT OR IGNORE INTO assignments (entry_id, institution, course, role, team, public_summary, document_key, artifact_audience)
 VALUES (4, 'UNC Chapel Hill', 'ECON 101', 'student', NULL, 'A first group assignment.', NULL, 'private');
+
+-- Placeholder media for milestone 2's layout work. Real R2-backed, viewer-
+-- checked serving is milestone 4 (upload) / 5 (privacy hardening) - these
+-- key_* values are plain /fixtures/ paths under public/, not R2 keys, until
+-- then. See src/components/Media.astro.
+INSERT OR IGNORE INTO media (
+	id, entry_id, owner_id, kind, key_thumb, key_display, key_large, poster_key,
+	mime, width, height, duration_ms, bytes, captured_at, caption, alt_text,
+	sha256, phash, sort_order
+) VALUES
+	(
+		1, 1, 1, 'photo',
+		'/fixtures/copenhagen-harbor.svg', '/fixtures/copenhagen-harbor.svg', '/fixtures/copenhagen-harbor.svg',
+		NULL, 'image/svg+xml', 1200, 900, NULL, NULL, '2026-08-15T08:30:00.000Z',
+		'The harbor, one last time.', 'The Copenhagen harbor on an overcast morning.',
+		NULL, NULL, 0
+	),
+	(
+		2, 2, 1, 'photo',
+		'/fixtures/chapel-hill-quad.svg', '/fixtures/chapel-hill-quad.svg', '/fixtures/chapel-hill-quad.svg',
+		NULL, 'image/svg+xml', 1200, 900, NULL, NULL, '2026-08-16T19:00:00.000Z',
+		'The quad, first look.', 'The UNC quad in late summer light.',
+		NULL, NULL, 0
+	),
+	(
+		3, 3, 1, 'photo',
+		'/fixtures/asheville-overlook.svg', '/fixtures/asheville-overlook.svg', '/fixtures/asheville-overlook.svg',
+		NULL, 'image/svg+xml', 1200, 900, NULL, NULL, '2026-09-20T14:00:00.000Z',
+		'The overlook outside Asheville.', 'A mountain overlook near Asheville.',
+		NULL, NULL, 0
+	);

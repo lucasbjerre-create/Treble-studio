@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, getTableColumns, inArray, isNull, lte, or, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, gt, inArray, isNull, lt, lte, or, type SQL } from 'drizzle-orm';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import * as schema from './schema';
 
@@ -58,18 +58,66 @@ export async function listEntriesForViewer(
 	db: Database,
 	viewer: Viewer,
 	now: string,
-	opts: { personId?: number; chapterId?: number } = {}
+	opts: { personId?: number; chapterId?: number; category?: 'life' | 'school' | 'trip' } = {}
 ) {
 	const where = combine(
 		entryVisibilityWhere(viewer, now),
 		opts.personId !== undefined ? eq(schema.entries.personId, opts.personId) : undefined,
-		opts.chapterId !== undefined ? eq(schema.entries.chapterId, opts.chapterId) : undefined
+		opts.chapterId !== undefined ? eq(schema.entries.chapterId, opts.chapterId) : undefined,
+		opts.category !== undefined ? eq(schema.entries.category, opts.category) : undefined
 	);
 
 	const columns = viewer === 'studio' ? getTableColumns(schema.entries) : publicEntryColumns;
 	let query = db.select(columns).from(schema.entries).$dynamic();
 	if (where) query = query.where(where);
 	return query.orderBy(desc(schema.entries.occurredAt));
+}
+
+/**
+ * Previous and next entry by occurred_at, within the same viewer-visible set
+ * for one person. Used for the entry page's prev/next links.
+ */
+export async function getAdjacentEntries(
+	db: Database,
+	viewer: Viewer,
+	personId: number,
+	occurredAt: string,
+	now: string
+) {
+	const base = combine(entryVisibilityWhere(viewer, now), eq(schema.entries.personId, personId));
+	const columns = viewer === 'studio' ? getTableColumns(schema.entries) : publicEntryColumns;
+
+	const prevWhere = combine(base, lt(schema.entries.occurredAt, occurredAt));
+	let prevQuery = db.select(columns).from(schema.entries).$dynamic();
+	if (prevWhere) prevQuery = prevQuery.where(prevWhere);
+	const prevRows = await prevQuery.orderBy(desc(schema.entries.occurredAt)).limit(1);
+
+	const nextWhere = combine(base, gt(schema.entries.occurredAt, occurredAt));
+	let nextQuery = db.select(columns).from(schema.entries).$dynamic();
+	if (nextWhere) nextQuery = nextQuery.where(nextWhere);
+	const nextRows = await nextQuery.orderBy(asc(schema.entries.occurredAt)).limit(1);
+
+	return { prev: prevRows[0], next: nextRows[0] };
+}
+
+/** entry_texts lookup for rendering the other language - see getEntryTranslation usage in entry pages. */
+export async function getEntryTranslation(db: Database, entryId: number, lang: 'da' | 'en') {
+	const rows = await db
+		.select()
+		.from(schema.entryTexts)
+		.where(and(eq(schema.entryTexts.entryId, entryId), eq(schema.entryTexts.lang, lang)))
+		.limit(1);
+	return rows[0];
+}
+
+/** Batched entry_texts lookup for a list page (archive) - one query instead of one per entry. */
+export async function listEntryTranslations(db: Database, entryIds: number[], lang: 'da' | 'en') {
+	if (entryIds.length === 0) return new Map<number, Awaited<ReturnType<typeof getEntryTranslation>>>();
+	const rows = await db
+		.select()
+		.from(schema.entryTexts)
+		.where(and(inArray(schema.entryTexts.entryId, entryIds), eq(schema.entryTexts.lang, lang)));
+	return new Map(rows.map((row) => [row.entryId, row]));
 }
 
 export async function getEntryBySlugForViewer(
@@ -144,6 +192,37 @@ const publicPlaceColumns = {
 export async function listPlacesForViewer(db: Database, viewer: Viewer) {
 	const columns = viewer === 'studio' ? getTableColumns(schema.places) : publicPlaceColumns;
 	return db.select(columns).from(schema.places);
+}
+
+export async function getPlaceById(db: Database, viewer: Viewer, id: number) {
+	const columns = viewer === 'studio' ? getTableColumns(schema.places) : publicPlaceColumns;
+	const rows = await db.select(columns).from(schema.places).where(eq(schema.places.id, id)).limit(1);
+	return rows[0];
+}
+
+// Excludes email - never needed by a reader and not privacy-cleared for public display.
+const publicPersonColumns = {
+	id: schema.people.id,
+	slug: schema.people.slug,
+	displayName: schema.people.displayName,
+	role: schema.people.role,
+	routeColor: schema.people.routeColor
+} as const;
+
+export async function getPersonBySlug(db: Database, viewer: Viewer, slug: string) {
+	const columns = viewer === 'studio' ? getTableColumns(schema.people) : publicPersonColumns;
+	const rows = await db.select(columns).from(schema.people).where(eq(schema.people.slug, slug)).limit(1);
+	return rows[0];
+}
+
+// Chapters aren't audience-gated themselves (just organizational metadata on
+// top of entries, which are), so no viewer filtering - same as places.
+export async function listChaptersForPerson(db: Database, personId: number) {
+	return db
+		.select()
+		.from(schema.chapters)
+		.where(eq(schema.chapters.personId, personId))
+		.orderBy(asc(schema.chapters.sortOrder));
 }
 
 /**

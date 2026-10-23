@@ -1,0 +1,73 @@
+---
+import Media from '../Media.astro';
+import type { EntryForDisplay, MediaForDisplay } from '../../lib/composition';
+import { paragraphsFrom } from '../../lib/text';
+
+interface Props {
+	entry: EntryForDisplay;
+	media: MediaForDisplay[];
+}
+
+const { entry, media } = Astro.props;
+const paragraphs = paragraphsFrom(entry.bodyMd);
+const firstMedia = media[0];
+---
+
+<article class="short-dispatch">
+	<h1 class="title">{entry.title}</h1>
+	{entry.dek && <p class="dek">{entry.dek}</p>}
+	{paragraphs.map((p) => <p class="body">{p}</p>)}
+	{
+		firstMedia && (
+			<Media
+				kind={firstMedia.kind}
+				keyThumb={firstMedia.keyThumb}
+				keyDisplay={firstMedia.keyDisplay}
+				keyLarge={firstMedia.keyLarge}
+				posterKey={firstMedia.posterKey}
+				width={firstMedia.width}
+				height={firstMedia.height}
+				caption={firstMedia.caption}
+				altText={firstMedia.altText}
+			/>
+		)
+	}
+	{entry.translationNote && <p class="translation-note">{entry.translationNote}</p>}
+</article>
+
+<style>
+	.short-dispatch {
+		max-width: 34rem;
+	}
+
+	.title {
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--color-muted);
+		margin: 0 0 var(--space-2);
+	}
+
+	.dek {
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+		color: var(--color-muted);
+		margin: 0 0 var(--space-3);
+	}
+
+	.body {
+		font-family: var(--font-serif);
+		font-size: var(--text-lg);
+		line-height: 1.5;
+		margin: 0 0 var(--space-4);
+	}
+
+	.translation-note {
+		font-family: var(--font-sans);
+		font-size: var(--text-xs);
+		color: var(--color-muted);
+		font-style: italic;
+	}
+</style>

@@ -1,0 +1,108 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import FeatureChapter from '../../../components/compositions/FeatureChapter.astro';
+import PhotoSequence from '../../../components/compositions/PhotoSequence.astro';
+import ShortDispatch from '../../../components/compositions/ShortDispatch.astro';
+import StandardStory from '../../../components/compositions/StandardStory.astro';
+import { getDb } from '../../../db/client';
+import { getAdjacentEntries, getEntryBySlugForViewer, getEntryTranslation, listMediaForEntry } from '../../../db/queries';
+import { isLocale, t, type Locale } from '../../../i18n/t';
+import { compositionForFormat } from '../../../lib/composition';
+import { resolveEntryText } from '../../../lib/translation';
+
+const { lang: rawLang, person: personSlug, slug } = Astro.params;
+if (!rawLang || !isLocale(rawLang) || !personSlug || !slug) {
+	return new Response('Not found', { status: 404 });
+}
+const lang = rawLang as Locale;
+const dict = t(lang);
+const otherLang: Locale = lang === 'en' ? 'da' : 'en';
+
+const db = getDb();
+const now = new Date().toISOString();
+
+const entry = await getEntryBySlugForViewer(db, 'public', personSlug, slug, now);
+if (!entry) {
+	return new Response('Not found', { status: 404 });
+}
+
+const [translation, media, adjacent] = await Promise.all([
+	getEntryTranslation(db, entry.id, lang),
+	listMediaForEntry(db, 'public', entry.id, now),
+	getAdjacentEntries(db, 'public', entry.personId, entry.occurredAt, now)
+]);
+
+const resolved = resolveEntryText(
+	{ originalLang: entry.originalLang, title: entry.title, dek: entry.dek, bodyMd: entry.bodyMd },
+	translation,
+	lang
+);
+
+const entryForDisplay = {
+	title: resolved.title,
+	dek: resolved.dek,
+	bodyMd: resolved.bodyMd,
+	occurredAt: entry.occurredAt,
+	timezone: entry.timezone,
+	format: entry.format,
+	translationNote: resolved.isFallback ? dict.entry.translationNote : null
+};
+
+const composition = compositionForFormat(entry.format);
+---
+
+<BaseLayout lang={lang} title={resolved.title} altPath={`/${otherLang}/${personSlug}/${slug}`}>
+	<main class="entry-page">
+		{composition === 'short_dispatch' && <ShortDispatch entry={entryForDisplay} media={media} />}
+		{composition === 'standard_story' && <StandardStory entry={entryForDisplay} media={media} />}
+		{composition === 'photo_sequence' && <PhotoSequence entry={entryForDisplay} media={media} />}
+		{composition === 'feature_chapter' && <FeatureChapter entry={entryForDisplay} media={media} />}
+
+		<nav class="adjacent">
+			{
+				adjacent.prev ? (
+					<a href={`/${lang}/${personSlug}/${adjacent.prev.slug}`}>&larr; {dict.entry.previous}</a>
+				) : (
+					<span />
+				)
+			}
+			{
+				adjacent.next ? (
+					<a href={`/${lang}/${personSlug}/${adjacent.next.slug}`}>{dict.entry.next} &rarr;</a>
+				) : (
+					<span />
+				)
+			}
+		</nav>
+	</main>
+</BaseLayout>
+
+<style>
+	.entry-page {
+		max-width: 44rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--space-4) var(--space-12);
+	}
+
+	.adjacent {
+		display: flex;
+		justify-content: space-between;
+		margin-top: var(--space-8);
+		padding-top: var(--space-4);
+		border-top: 1px solid var(--color-border);
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+	}
+
+	.adjacent a {
+		color: var(--color-ink);
+		text-decoration: none;
+		min-height: 44px;
+		display: flex;
+		align-items: center;
+	}
+
+	.adjacent a:hover {
+		color: var(--color-accent);
+	}
+</style>
