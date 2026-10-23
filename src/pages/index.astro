@@ -1,0 +1,6 @@
+---
+import { detectLocale } from '../i18n/detect';
+
+const locale = detectLocale(Astro.request.headers.get('accept-language'));
+return Astro.redirect(`/${locale}/`);
+---

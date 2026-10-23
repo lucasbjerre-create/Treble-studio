@@ -1,0 +1,60 @@
+/* Self-hosted fonts. Only the weights actually used are imported. */
+@import '@fontsource/source-serif-4/400.css';
+@import '@fontsource/source-serif-4/600.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+
+:root {
+	/* Palette: warm off-white, near-black text, muted grey-blue, one route accent.
+	   Accent is a placeholder until spec section 14.4 (route accent color) is settled. */
+	--color-paper: #faf6ef;
+	--color-ink: #1c1a17;
+	--color-muted: #6b7280;
+	--color-accent: #b3473f; /* placeholder: muted red */
+
+	--color-border: #e4ddd0;
+	--color-surface: #ffffff;
+
+	/* Type */
+	--font-serif: 'Source Serif 4', ui-serif, Georgia, serif;
+	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+	--text-xs: 0.75rem;
+	--text-sm: 0.875rem;
+	--text-base: 1rem;
+	--text-lg: 1.25rem;
+	--text-xl: 1.75rem;
+	--text-2xl: 2.5rem;
+
+	/* Spacing scale, 4px base */
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-6: 1.5rem;
+	--space-8: 2rem;
+	--space-12: 3rem;
+
+	/* Motion */
+	--motion-fast: 150ms;
+	--motion-base: 250ms;
+	--motion-camera: 1000ms;
+
+	/* Minimum tap target per spec section 6 */
+	--tap-target-min: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--motion-fast: 0ms;
+		--motion-base: 0ms;
+		--motion-camera: 0ms;
+	}
+}
+
+body {
+	background: var(--color-paper);
+	color: var(--color-ink);
+	font-family: var(--font-serif);
+}
