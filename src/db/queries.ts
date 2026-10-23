@@ -1,0 +1,167 @@
+import { and, asc, desc, eq, getTableColumns, inArray, isNull, lte, or, type SQL } from 'drizzle-orm';
+import type { DrizzleD1Database } from 'drizzle-orm/d1';
+import * as schema from './schema';
+
+export type Viewer = 'public' | 'family' | 'studio';
+export type Database = DrizzleD1Database<typeof schema>;
+
+function combine(...conditions: Array<SQL | undefined>): SQL | undefined {
+	const defined = conditions.filter((c): c is SQL => c !== undefined);
+	return defined.length === 0 ? undefined : and(...defined);
+}
+
+/**
+ * publish_after gates the public tier only - family already knows where
+ * Lucas is, the delay exists to protect against strangers. See src/lib/visibility.ts
+ * for the equivalent pure logic, which the privacy tests check this mirrors.
+ */
+function entryVisibilityWhere(viewer: Viewer, now: string): SQL | undefined {
+	if (viewer === 'studio') return undefined;
+	if (viewer === 'family') {
+		return and(eq(schema.entries.status, 'published'), inArray(schema.entries.audience, ['family', 'public']));
+	}
+	return and(
+		eq(schema.entries.status, 'published'),
+		eq(schema.entries.audience, 'public'),
+		or(isNull(schema.entries.publishAfter), lte(schema.entries.publishAfter, now))
+	);
+}
+
+// Columns safe to send to public/family viewers. Excludes publish_after
+// (would leak exact movement timing), consent_status and camera_json
+// (privacy.md: never reaches public/family responses), and internal
+// created_at/updated_at bookkeeping.
+const publicEntryColumns = {
+	id: schema.entries.id,
+	personId: schema.entries.personId,
+	chapterId: schema.entries.chapterId,
+	tripId: schema.entries.tripId,
+	placeId: schema.entries.placeId,
+	slug: schema.entries.slug,
+	format: schema.entries.format,
+	category: schema.entries.category,
+	arcStage: schema.entries.arcStage,
+	status: schema.entries.status,
+	audience: schema.entries.audience,
+	originalLang: schema.entries.originalLang,
+	title: schema.entries.title,
+	dek: schema.entries.dek,
+	bodyMd: schema.entries.bodyMd,
+	occurredAt: schema.entries.occurredAt,
+	endedAt: schema.entries.endedAt,
+	timezone: schema.entries.timezone,
+	featured: schema.entries.featured,
+	publishedAt: schema.entries.publishedAt
+} as const;
+
+export async function listEntriesForViewer(
+	db: Database,
+	viewer: Viewer,
+	now: string,
+	opts: { personId?: number; chapterId?: number } = {}
+) {
+	const where = combine(
+		entryVisibilityWhere(viewer, now),
+		opts.personId !== undefined ? eq(schema.entries.personId, opts.personId) : undefined,
+		opts.chapterId !== undefined ? eq(schema.entries.chapterId, opts.chapterId) : undefined
+	);
+
+	const columns = viewer === 'studio' ? getTableColumns(schema.entries) : publicEntryColumns;
+	let query = db.select(columns).from(schema.entries).$dynamic();
+	if (where) query = query.where(where);
+	return query.orderBy(desc(schema.entries.occurredAt));
+}
+
+export async function getEntryBySlugForViewer(
+	db: Database,
+	viewer: Viewer,
+	personSlug: string,
+	slug: string,
+	now: string
+) {
+	const where = combine(
+		eq(schema.people.slug, personSlug),
+		eq(schema.entries.slug, slug),
+		entryVisibilityWhere(viewer, now)
+	);
+
+	const columns = viewer === 'studio' ? getTableColumns(schema.entries) : publicEntryColumns;
+	let query = db
+		.select(columns)
+		.from(schema.entries)
+		.innerJoin(schema.people, eq(schema.entries.personId, schema.people.id))
+		.$dynamic();
+	if (where) query = query.where(where);
+	const rows = await query.limit(1);
+	return rows[0];
+}
+
+// Excludes owner_id and bytes (internal bookkeeping, not privacy-mandated)
+// and sha256/phash (privacy.md: never reaches public/family responses).
+const publicMediaColumns = {
+	id: schema.media.id,
+	entryId: schema.media.entryId,
+	kind: schema.media.kind,
+	keyThumb: schema.media.keyThumb,
+	keyDisplay: schema.media.keyDisplay,
+	keyLarge: schema.media.keyLarge,
+	posterKey: schema.media.posterKey,
+	mime: schema.media.mime,
+	width: schema.media.width,
+	height: schema.media.height,
+	durationMs: schema.media.durationMs,
+	capturedAt: schema.media.capturedAt,
+	caption: schema.media.caption,
+	altText: schema.media.altText,
+	sortOrder: schema.media.sortOrder
+} as const;
+
+export async function listMediaForEntry(db: Database, viewer: Viewer, entryId: number, now: string) {
+	const where = combine(eq(schema.media.entryId, entryId), entryVisibilityWhere(viewer, now));
+
+	const columns = viewer === 'studio' ? getTableColumns(schema.media) : publicMediaColumns;
+	let query = db
+		.select(columns)
+		.from(schema.media)
+		.innerJoin(schema.entries, eq(schema.media.entryId, schema.entries.id))
+		.$dynamic();
+	if (where) query = query.where(where);
+	return query.orderBy(asc(schema.media.sortOrder));
+}
+
+// The privacy-critical exclusion: lat_private/lon_private never selected for
+// public or family viewers, proven by their absence from the result, not a
+// null check.
+const publicPlaceColumns = {
+	id: schema.places.id,
+	label: schema.places.label,
+	countryCode: schema.places.countryCode,
+	latPublic: schema.places.latPublic,
+	lonPublic: schema.places.lonPublic,
+	precision: schema.places.precision
+} as const;
+
+export async function listPlacesForViewer(db: Database, viewer: Viewer) {
+	const columns = viewer === 'studio' ? getTableColumns(schema.places) : publicPlaceColumns;
+	return db.select(columns).from(schema.places);
+}
+
+/**
+ * Hides future-dated legs from public/family (privacy.md). Does NOT yet trim
+ * route geometry near home - that's milestone 5 (family layer and privacy
+ * hardening), not implemented here. geometry_json is returned as-is.
+ */
+export async function listLegsForViewer(
+	db: Database,
+	viewer: Viewer,
+	now: string,
+	opts: { tripId?: number } = {}
+) {
+	const where = combine(
+		viewer === 'studio' ? undefined : lte(schema.legs.startsAt, now),
+		opts.tripId !== undefined ? eq(schema.legs.tripId, opts.tripId) : undefined
+	);
+	let query = db.select().from(schema.legs).$dynamic();
+	if (where) query = query.where(where);
+	return query.orderBy(asc(schema.legs.startsAt));
+}

@@ -16,7 +16,7 @@
     "test:e2e": "playwright test",
     "db:migrate:local": "wrangler d1 migrations apply exchange-site-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply exchange-site-db --remote",
-    "db:seed": "node -e \"console.log('db:seed has no seed script yet - lands in milestone 1')\"",
+    "db:seed": "wrangler d1 execute exchange-site-db --local --file=./src/db/seed.sql",
     "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {
@@ -27,6 +27,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "astro": "^7.4.2",
+    "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -34,8 +35,10 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
+    "@cloudflare/vitest-plugin": "^1.4.7",
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
+    "drizzle-kit": "^0.31.11",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"
   }
