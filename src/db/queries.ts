@@ -120,6 +120,16 @@ export async function listEntryTranslations(db: Database, entryIds: number[], la
 	return new Map(rows.map((row) => [row.entryId, row]));
 }
 
+/**
+ * Always studio-level columns (every field, no visibility filter) - used only
+ * by the studio editor, which already gates access via requireOwnEntry-style
+ * person checks rather than the public/family audience rules.
+ */
+export async function getEntryById(db: Database, id: number) {
+	const rows = await db.select().from(schema.entries).where(eq(schema.entries.id, id)).limit(1);
+	return rows[0];
+}
+
 export async function getEntryBySlugForViewer(
 	db: Database,
 	viewer: Viewer,
@@ -212,6 +222,12 @@ const publicPersonColumns = {
 export async function getPersonBySlug(db: Database, viewer: Viewer, slug: string) {
 	const columns = viewer === 'studio' ? getTableColumns(schema.people) : publicPersonColumns;
 	const rows = await db.select(columns).from(schema.people).where(eq(schema.people.slug, slug)).limit(1);
+	return rows[0];
+}
+
+/** Resolves the studio writer behind an Access-verified email - studio-only, full columns. */
+export async function getPersonByEmail(db: Database, email: string) {
+	const rows = await db.select().from(schema.people).where(eq(schema.people.email, email)).limit(1);
 	return rows[0];
 }
 

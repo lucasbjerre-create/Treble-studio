@@ -4,8 +4,10 @@
 -- All text and media keys are placeholders - no real content (CLAUDE.md:
 -- "Real personal content never goes into seeds, fixtures or tests").
 
+-- email is real (it's how studio auth resolves the Access-verified writer to
+-- a person row), everything else about this fixture person stays fictional.
 INSERT OR IGNORE INTO people (id, slug, display_name, email, role, route_color, created_at)
-VALUES (1, 'lucas', 'Lucas (fixture)', NULL, 'scholar', '#b3473f', '2026-08-01T00:00:00.000Z');
+VALUES (1, 'lucas', 'Lucas (fixture)', 'lucasbjerre@gmail.com', 'scholar', '#b3473f', '2026-08-01T00:00:00.000Z');
 
 INSERT OR IGNORE INTO chapters (id, person_id, slug, title, starts_on, ends_on, sort_order)
 VALUES (1, 1, 'unc', 'UNC - Fall 2026', '2026-08-15', '2026-12-15', 0);

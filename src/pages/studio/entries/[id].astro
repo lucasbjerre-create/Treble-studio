@@ -1,0 +1,60 @@
+---
+import EntryEditor from '../../../components/EntryEditor';
+import StudioLayout from '../../../layouts/StudioLayout.astro';
+import { getDb } from '../../../db/client';
+import { getEntryById, getPersonByEmail, listChaptersForPerson, listMediaForEntry } from '../../../db/queries';
+
+const id = Number(Astro.params.id);
+if (!Number.isInteger(id)) {
+	return new Response('Not found', { status: 404 });
+}
+
+const db = getDb();
+const person = await getPersonByEmail(db, Astro.locals.accessEmail);
+if (!person) {
+	return new Response('No person record matches this account', { status: 403 });
+}
+
+const entry = await getEntryById(db, id);
+if (!entry || entry.personId !== person.id) {
+	return new Response('Not found', { status: 404 });
+}
+
+const now = new Date().toISOString();
+const chapters = await listChaptersForPerson(db, person.id);
+const media = await listMediaForEntry(db, 'studio', id, now);
+---
+
+<StudioLayout title={entry.title}>
+	<main class="studio">
+		<EntryEditor
+			client:only="react"
+			chapters={chapters}
+			initialEntry={{
+				id: entry.id,
+				chapterId: entry.chapterId,
+				placeId: entry.placeId,
+				format: entry.format,
+				category: entry.category,
+				audience: entry.audience,
+				originalLang: entry.originalLang,
+				title: entry.title,
+				dek: entry.dek,
+				bodyMd: entry.bodyMd,
+				occurredAt: entry.occurredAt,
+				timezone: entry.timezone,
+				consentStatus: entry.consentStatus,
+				status: entry.status
+			}}
+			initialMedia={media.map((m) => ({ id: m.id, keyThumb: m.keyThumb, caption: m.caption }))}
+		/>
+	</main>
+</StudioLayout>
+
+<style>
+	.studio {
+		max-width: 40rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--space-4) var(--space-12);
+	}
+</style>

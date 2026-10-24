@@ -1,0 +1,28 @@
+---
+import EntryEditor from '../../../components/EntryEditor';
+import StudioLayout from '../../../layouts/StudioLayout.astro';
+import { getDb } from '../../../db/client';
+import { getPersonByEmail, listChaptersForPerson } from '../../../db/queries';
+
+const db = getDb();
+const person = await getPersonByEmail(db, Astro.locals.accessEmail);
+if (!person) {
+	return new Response('No person record matches this account', { status: 403 });
+}
+
+const chapters = await listChaptersForPerson(db, person.id);
+---
+
+<StudioLayout title="New entry">
+	<main class="studio">
+		<EntryEditor client:only="react" chapters={chapters} initialEntry={null} initialMedia={[]} />
+	</main>
+</StudioLayout>
+
+<style>
+	.studio {
+		max-width: 40rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--space-4) var(--space-12);
+	}
+</style>

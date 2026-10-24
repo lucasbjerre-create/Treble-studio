@@ -1,0 +1,1 @@
+ALTER TABLE `media` ADD `exif_json` text;

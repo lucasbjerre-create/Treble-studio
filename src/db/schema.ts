@@ -186,6 +186,10 @@ export const media = sqliteTable(
 		altText: text('alt_text'),
 		sha256: text('sha256'),
 		phash: text('phash'),
+		// Raw EXIF read client-side before resizing (studio.md: "store the
+		// result on the media row, privately"). Never selected for public/
+		// family viewers - same pattern as sha256/phash in src/db/queries.ts.
+		exifJson: text('exif_json'),
 		sortOrder: integer('sort_order').notNull().default(0)
 	},
 	(t) => [index('media_entry_id_idx').on(t.entryId), index('media_owner_id_idx').on(t.ownerId)]

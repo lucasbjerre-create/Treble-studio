@@ -1,0 +1,112 @@
+---
+import StudioLayout from '../../layouts/StudioLayout.astro';
+import { getDb } from '../../db/client';
+import { getPersonByEmail, listEntriesForViewer } from '../../db/queries';
+
+const db = getDb();
+const person = await getPersonByEmail(db, Astro.locals.accessEmail);
+if (!person) {
+	return new Response('No person record matches this account', { status: 403 });
+}
+
+const now = new Date().toISOString();
+const entries = await listEntriesForViewer(db, 'studio', now, { personId: person.id });
+---
+
+<StudioLayout title="Entries">
+	<main class="studio">
+		<div class="top-row">
+			<h1>Entries</h1>
+			<a class="button" href="/studio/entries/new">New entry</a>
+		</div>
+
+		{
+			entries.length === 0 ? (
+				<p>Nothing yet.</p>
+			) : (
+				<ul class="entry-list">
+					{entries.map((entry) => (
+						<li>
+							<a href={`/studio/entries/${entry.id}`}>
+								<span class="status" data-status={entry.status}>
+									{entry.status}
+								</span>
+								<span class="title">{entry.title}</span>
+								<span class="date">{entry.occurredAt.slice(0, 10)}</span>
+							</a>
+						</li>
+					))}
+				</ul>
+			)
+		}
+	</main>
+</StudioLayout>
+
+<style>
+	.studio {
+		max-width: 40rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--space-4) var(--space-12);
+		font-family: var(--font-sans);
+	}
+
+	.top-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: var(--space-6);
+	}
+
+	h1 {
+		font-family: var(--font-serif);
+		font-size: var(--text-xl);
+		margin: 0;
+	}
+
+	.button {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 var(--space-4);
+		background: var(--color-accent);
+		color: #fff;
+		text-decoration: none;
+	}
+
+	.entry-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.entry-list a {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		min-height: 44px;
+		padding: var(--space-2) 0;
+		border-top: 1px solid var(--color-border);
+		color: var(--color-ink);
+		text-decoration: none;
+	}
+
+	.status {
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		color: var(--color-muted);
+		min-width: 4.5rem;
+	}
+
+	.status[data-status='published'] {
+		color: var(--color-accent);
+	}
+
+	.title {
+		flex: 1;
+	}
+
+	.date {
+		font-size: var(--text-sm);
+		color: var(--color-muted);
+	}
+</style>

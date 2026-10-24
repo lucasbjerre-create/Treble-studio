@@ -26,6 +26,13 @@
 			"bucket_name": "exchange-site-media"
 		}
 	],
+	// Not sensitive (just identifies which Cloudflare account), so a plain
+	// var rather than a secret. TEAM_DOMAIN, POLICY_AUD, R2_ACCESS_KEY_ID and
+	// R2_SECRET_ACCESS_KEY are real secrets - set via `wrangler secret put`,
+	// never here. See src/env.d.ts for their type declarations.
+	"vars": {
+		"R2_ACCOUNT_ID": "1f4ddccd32add79e77276d983872754d"
+	},
 	"env": {
 		// No separate preview D1/R2 resources exist yet. These placeholders
 		// stay until a real preview database and bucket are created - swap
