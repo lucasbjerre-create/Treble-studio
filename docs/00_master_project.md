@@ -471,6 +471,9 @@ Only if at least two students actually want it. Separate repo, fictional sample 
 
 ## 14. Open decisions
 
+**Settled**
+- Custom domain: `treble.cordoza.dk`, a subdomain of Lucas's existing `cordoza.dk`. Decided 2026-10-23, not for branding but because Cloudflare Access's path-scoped applications require a DNS zone the account owns, which the shared `workers.dev` domain isn't - /studio couldn't be gated without it. The Worker's `workers.dev` URL is now disabled (Wrangler's default once a custom domain route is set).
+
 **Needed before building**
 1. Audience model. Family first with opt in public entries (this file's default), or public first with a family layer on top.
 2. Who goes on the family allowlist, and whether grandparents can manage email codes or rely on the digest.
@@ -498,11 +501,10 @@ Only if at least two students actually want it. Separate repo, fictional sample 
 17. Grades ever visible.
 18. Study index public from launch or only for job applications.
 19. TREBLE overview public, link only or invite only.
-20. Custom domain or not.
-21. Printed book, and which format.
-22. Whether the template shares only code or also the design.
-23. Who is backup administrator and gets the recovery instructions.
-24. Whether originals are kept privately anywhere besides the phone library, and for how long.
+20. Printed book, and which format.
+21. Whether the template shares only code or also the design.
+22. Who is backup administrator and gets the recovery instructions.
+23. Whether originals are kept privately anywhere besides the phone library, and for how long.
 
 ---
 

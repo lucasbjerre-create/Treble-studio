@@ -11,6 +11,16 @@
 	"observability": {
 		"enabled": true
 	},
+	// Custom Domain so Cloudflare Access can path-scope /studio - Access's
+	// self-hosted applications require a zone the account owns, which the
+	// shared workers.dev domain isn't. cordoza.dk is Lucas's own zone,
+	// already on Cloudflare; this subdomain had no prior DNS record.
+	"routes": [
+		{
+			"pattern": "treble.cordoza.dk",
+			"custom_domain": true
+		}
+	],
 	// Local dev / default. Points at the one real D1 database and R2 bucket
 	// created 2026-10-23 (npx wrangler d1 create / r2 bucket create).
 	"d1_databases": [
