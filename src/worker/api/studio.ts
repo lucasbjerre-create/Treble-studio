@@ -342,3 +342,21 @@ studioApi.post('/media/commit', async (c) => {
 
 	return c.json(row, 201);
 });
+
+// A simple studio-only pass-through for viewing just-uploaded photos, not
+// the public/family-facing serving route with precision/consent checks
+// (that's later milestone work - privacy.md's "Family media served through
+// a Worker route that checks the viewer" is about that one, not this one).
+// This just lets Lucas see what he uploaded, gated by the same Access
+// check as every other /api/studio/* route.
+studioApi.get('/media-file/:path{.+}', async (c) => {
+	const object = await env.MEDIA.get(c.req.param('path'));
+	if (!object) return c.notFound();
+
+	return new Response(object.body, {
+		headers: {
+			'Content-Type': object.httpMetadata?.contentType ?? 'image/webp',
+			'Cache-Control': 'private, max-age=3600'
+		}
+	});
+});

@@ -201,7 +201,7 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded 
 			{media.length > 0 && (
 				<ul className="media-list">
 					{media.map((m) => (
-						<li key={m.id}>{m.keyThumb && <img src={m.keyThumb} alt={m.caption ?? ''} />}</li>
+						<li key={m.id}>{m.keyThumb && <img src={`/api/studio/media-file/${m.keyThumb}`} alt={m.caption ?? ''} />}</li>
 					))}
 				</ul>
 			)}
