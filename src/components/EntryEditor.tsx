@@ -88,9 +88,9 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 
 	useEffect(() => {
 		fetch('/api/studio/places')
-			.then((r) => r.json())
+			.then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Could not load places (${r.status})`))))
 			.then((rows) => setPlaces(rows as Place[]))
-			.catch(() => {});
+			.catch(() => setSaveError('Could not load places - your session may have expired. Reload the page.'));
 	}, []);
 
 	function currentPayload() {
