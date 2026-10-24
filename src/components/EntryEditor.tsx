@@ -43,8 +43,26 @@ const AUDIENCES: Array<InitialEntry['audience']> = ['private', 'family', 'public
 const PRECISIONS: Place['precision'][] = ['exact', 'area', 'city', 'hidden'];
 const CONSENTS = ['not_needed', 'asked', 'yes_family', 'yes_public', 'declined'];
 
+// The three timezones the journey actually moves between - quick buttons
+// beat typing an IANA name on a phone. The field stays a free text input too
+// for anywhere else (a weekend trip, a layover).
+const TIMEZONE_PRESETS: Array<{ label: string; value: string }> = [
+	{ label: 'Denmark', value: 'Europe/Copenhagen' },
+	{ label: 'North Carolina', value: 'America/New_York' },
+	{ label: 'Singapore', value: 'Asia/Singapore' }
+];
+
 function nowLocalInputValue(): string {
 	const d = new Date();
+	const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+	return local.toISOString().slice(0, 16);
+}
+
+// Same local-wall-clock conversion as nowLocalInputValue, for an arbitrary
+// UTC ISO timestamp (a photo's EXIF capture time, round-tripped through the
+// commit response) instead of "now".
+function isoToLocalInputValue(iso: string): string {
+	const d = new Date(iso);
 	const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
 	return local.toISOString().slice(0, 16);
 }
@@ -67,6 +85,9 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 	const [occurredAtLocal, setOccurredAtLocal] = useState(
 		initialEntry ? initialEntry.occurredAt.slice(0, 16) : nowLocalInputValue()
 	);
+	// Whether Lucas has touched the date himself - once he has, a photo's
+	// EXIF capture time never overwrites it, even if he adds more photos.
+	const [occurredAtTouched, setOccurredAtTouched] = useState(initialEntry !== null);
 	const [timezone, setTimezone] = useState(
 		initialEntry?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 	);
@@ -101,7 +122,11 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 			category,
 			audience,
 			originalLang,
-			title,
+			// The server requires a non-empty title; a photo-first draft (added
+			// before typing anything) needs a placeholder so the silent
+			// auto-create succeeds. The Title field itself stays blank so
+			// there's an obvious prompt to replace it.
+			title: title.trim() || 'Untitled entry',
 			dek: dek || null,
 			bodyMd: bodyMd || null,
 			occurredAt: new Date(occurredAtLocal).toISOString(),
@@ -315,12 +340,27 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 					<input
 						type="datetime-local"
 						value={occurredAtLocal}
-						onChange={(e) => setOccurredAtLocal(e.target.value)}
+						onChange={(e) => {
+							setOccurredAtTouched(true);
+							setOccurredAtLocal(e.target.value);
+						}}
 					/>
 				</label>
 
-				<label>
+				<label className="full">
 					Timezone
+					<div className="timezone-presets">
+						{TIMEZONE_PRESETS.map((preset) => (
+							<button
+								key={preset.value}
+								type="button"
+								className={timezone === preset.value ? 'active' : ''}
+								onClick={() => setTimezone(preset.value)}
+							>
+								{preset.label}
+							</button>
+						))}
+					</div>
 					<input value={timezone} onChange={(e) => setTimezone(e.target.value)} />
 				</label>
 			</div>
@@ -336,11 +376,17 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 				</span>
 			</div>
 
-			{entryId ? (
-				<PhotoUpload entryId={entryId} media={media} onUploaded={(item) => setMedia((prev) => [...prev, item])} />
-			) : (
-				<p className="hint">Save a draft first to add photos.</p>
-			)}
+			<PhotoUpload
+				entryId={entryId}
+				ensureEntryId={saveDraft}
+				media={media}
+				onUploaded={(item) => {
+					setMedia((prev) => [...prev, item]);
+					if (!occurredAtTouched && item.capturedAt) {
+						setOccurredAtLocal(isoToLocalInputValue(item.capturedAt));
+					}
+				}}
+			/>
 
 			<div className="publish-row">
 				<button type="button" onClick={() => setReviewOpen(true)} disabled={!entryId && !title}>

@@ -6,10 +6,13 @@ export interface MediaItem {
 	id: number;
 	keyThumb: string | null;
 	caption: string | null;
+	capturedAt: string | null;
 }
 
 interface Props {
-	entryId: number;
+	entryId: number | null;
+	/** Creates (or returns the existing) entry id, called lazily on the first photo - lets "add a photo" be the first thing Lucas does, with the draft row created silently underneath it. */
+	ensureEntryId: () => Promise<number | null>;
 	media: MediaItem[];
 	onUploaded: (item: MediaItem) => void;
 }
@@ -55,7 +58,7 @@ async function resizeToWebp(bitmap: ImageBitmap, maxWidth: number): Promise<Blob
  * do not run out of memory"), each with its own progress/retry - a failed
  * file never blocks the others or the already-saved draft.
  */
-export default function PhotoUpload({ entryId, media, onUploaded }: Props) {
+export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded }: Props) {
 	const [inFlight, setInFlight] = useState<InFlightFile[]>([]);
 
 	async function processAndUpload(file: File) {
@@ -67,6 +70,9 @@ export default function PhotoUpload({ entryId, media, onUploaded }: Props) {
 		}
 
 		try {
+			const id = entryId ?? (await ensureEntryId());
+			if (!id) throw new Error('Could not create a draft to attach this photo to');
+
 			// Read EXIF before anything else touches the file (studio.md).
 			const exif = await exifr.parse(file, true).catch(() => undefined);
 			const originalBuffer = await file.arrayBuffer();
@@ -87,7 +93,7 @@ export default function PhotoUpload({ entryId, media, onUploaded }: Props) {
 			const presignRes = await fetch('/api/studio/media/presign', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ entryId })
+				body: JSON.stringify({ entryId: id })
 			});
 			if (!presignRes.ok) throw new Error('Could not get an upload URL');
 			const { keys, urls } = (await presignRes.json()) as {
@@ -113,7 +119,7 @@ export default function PhotoUpload({ entryId, media, onUploaded }: Props) {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					entryId,
+					entryId: id,
 					keyThumb: keys.thumb,
 					keyDisplay: keys.display,
 					keyLarge: keys.large,

@@ -46,7 +46,7 @@ const media = await listMediaForEntry(db, 'studio', id, now);
 				consentStatus: entry.consentStatus,
 				status: entry.status
 			}}
-			initialMedia={media.map((m) => ({ id: m.id, keyThumb: m.keyThumb, caption: m.caption }))}
+			initialMedia={media.map((m) => ({ id: m.id, keyThumb: m.keyThumb, caption: m.caption, capturedAt: m.capturedAt }))}
 		/>
 	</main>
 </StudioLayout>

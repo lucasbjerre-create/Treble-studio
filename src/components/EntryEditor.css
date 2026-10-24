@@ -52,6 +52,29 @@
 	padding: 0;
 }
 
+.timezone-presets {
+	display: flex;
+	gap: var(--space-2);
+	flex-wrap: wrap;
+}
+
+.timezone-presets button {
+	min-height: 44px;
+	padding: 0 var(--space-3);
+	background: var(--color-paper);
+	border: 1px solid var(--color-border);
+	color: var(--color-ink);
+	font-family: var(--font-sans);
+	font-size: var(--text-sm);
+	cursor: pointer;
+}
+
+.timezone-presets button.active {
+	background: var(--color-accent);
+	border-color: var(--color-accent);
+	color: #fff;
+}
+
 .new-place {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
