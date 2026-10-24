@@ -99,6 +99,9 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded 
 			// imageOrientation: 'from-image' applies the EXIF orientation while
 			// decoding, so there's no separate manual rotation step.
 			const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+			// Captured before close() - a closed ImageBitmap reports 0x0 for
+			// both, which then failed the commit payload's validation.
+			const { width, height } = bitmap;
 			const blobs: Record<SizeName, Blob> = {
 				thumb: await resizeToWebp(bitmap, SIZE_WIDTHS.thumb),
 				display: await resizeToWebp(bitmap, SIZE_WIDTHS.display),
@@ -143,8 +146,8 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded 
 					keyLarge: keys.large,
 					kind: 'photo',
 					mime: 'image/webp',
-					width: bitmap.width,
-					height: bitmap.height,
+					width,
+					height,
 					bytes: blobs.large.size,
 					capturedAt: exif?.DateTimeOriginal ? new Date(exif.DateTimeOriginal).toISOString() : null,
 					sha256,
