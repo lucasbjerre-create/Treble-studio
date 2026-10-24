@@ -6,11 +6,23 @@
 
 -- email is real (it's how studio auth resolves the Access-verified writer to
 -- a person row), everything else about this fixture person stays fictional.
-INSERT OR IGNORE INTO people (id, slug, display_name, email, role, route_color, created_at)
-VALUES (1, 'lucas', 'Lucas (fixture)', 'lucasbjerre@gmail.com', 'scholar', '#b3473f', '2026-08-01T00:00:00.000Z');
+INSERT OR IGNORE INTO people (id, slug, display_name, email, role, route_color, seat, created_at)
+VALUES (1, 'lucas', 'Lucas (fixture)', 'lucasbjerre@gmail.com', 'scholar', '#b3473f', 1, '2026-08-01T00:00:00.000Z');
+
+-- Fictional second scholar (OVERNIGHT.md brand decision 5 / BUILD_PLAN.md
+-- milestone 6 pilot) - entirely fictional, including the email, unlike
+-- Lucas's row above. Seat order is a placeholder until Lucas settles it.
+INSERT OR IGNORE INTO people (id, slug, display_name, email, role, route_color, seat, created_at)
+VALUES (2, 'anna', 'Anna (fixture)', 'anna.fixture@example.test', 'scholar', NULL, 2, '2026-08-01T00:00:00.000Z');
+
+-- Idempotent even on a database seeded before the `seat` column existed.
+UPDATE people SET seat = 1 WHERE slug = 'lucas';
+UPDATE people SET seat = 2 WHERE slug = 'anna';
 
 INSERT OR IGNORE INTO chapters (id, person_id, slug, title, starts_on, ends_on, sort_order)
-VALUES (1, 1, 'unc', 'UNC - Fall 2026', '2026-08-15', '2026-12-15', 0);
+VALUES
+	(1, 1, 'unc', 'UNC - Fall 2026', '2026-08-15', '2026-12-15', 0),
+	(2, 2, 'unc', 'UNC - Fall 2026', '2026-08-15', '2026-12-15', 0);
 
 INSERT OR IGNORE INTO places (id, label, country_code, lat_private, lon_private, lat_public, lon_public, precision)
 VALUES
@@ -21,16 +33,23 @@ VALUES
 INSERT OR IGNORE INTO trips (id, person_id, title, starts_on, ends_on, summary, cover_media_id)
 VALUES
 	(1, 1, 'Moving to Chapel Hill', '2026-08-15', '2026-08-16', 'Leaving Copenhagen and arriving at UNC.', NULL),
-	(2, 1, 'Weekend in Asheville', '2026-09-19', '2026-09-20', 'A weekend trip out of Chapel Hill.', NULL);
+	(2, 1, 'Weekend in Asheville', '2026-09-19', '2026-09-20', 'A weekend trip out of Chapel Hill.', NULL),
+	(3, 2, 'Moving to Chapel Hill', '2026-08-15', '2026-08-16', 'Anna''s own flight out, same week as Lucas.', NULL),
+	-- Same dates as Lucas's trip 2, same place (Asheville) - the fixture
+	-- overlap src/lib/crossings.ts (task 4 tonight) is meant to suggest.
+	(4, 2, 'Weekend in Asheville', '2026-09-19', '2026-09-20', 'Also out of Chapel Hill that weekend.', NULL);
 
 INSERT OR IGNORE INTO trip_participants (trip_id, person_id)
-VALUES (1, 1), (2, 1);
+VALUES (1, 1), (2, 1), (3, 2), (4, 2);
 
 INSERT OR IGNORE INTO legs (id, trip_id, person_id, from_place_id, to_place_id, starts_at, ends_at, mode, geometry_json)
 VALUES
 	(1, 1, 1, 1, 2, '2026-08-15T14:00:00.000Z', '2026-08-16T02:00:00.000Z', 'flight', NULL),
 	(2, 2, 1, 2, 3, '2026-09-19T15:00:00.000Z', '2026-09-19T18:00:00.000Z', 'car', NULL),
-	(3, 2, 1, 3, 2, '2026-09-20T17:00:00.000Z', '2026-09-20T20:00:00.000Z', 'car', NULL);
+	(3, 2, 1, 3, 2, '2026-09-20T17:00:00.000Z', '2026-09-20T20:00:00.000Z', 'car', NULL),
+	(4, 3, 2, 1, 2, '2026-08-15T16:30:00.000Z', '2026-08-16T04:30:00.000Z', 'flight', NULL),
+	(5, 4, 2, 2, 3, '2026-09-19T16:00:00.000Z', '2026-09-19T19:00:00.000Z', 'car', NULL),
+	(6, 4, 2, 3, 2, '2026-09-20T18:00:00.000Z', '2026-09-20T21:00:00.000Z', 'car', NULL);
 
 -- Entries: leaving Copenhagen, arriving in Chapel Hill, a weekend trip, one
 -- school entry, two remarks, one entry still inside its publish delay, one
@@ -104,6 +123,32 @@ INSERT OR IGNORE INTO entries (
 		'2026-10-22T22:00:00.000Z', NULL, 'America/New_York', NULL,
 		'not_needed', 0, 0, NULL, '2026-10-22T22:00:00.000Z', '2026-10-22T22:00:00.000Z',
 		NULL
+	),
+	-- Anna (person 2): arrival, a remark, then the Asheville weekend that
+	-- overlaps Lucas's trip 2 in both place and date (task 2 tonight).
+	(
+		9, 2, 2, 3, 2, 'anna-arriving-in-chapel-hill', 'milestone', 'life', 'arrival',
+		'published', 'public', 'en', 'Settling into Chapel Hill', 'A different flight, the same new city.',
+		'Placeholder fixture text: Anna''s own arrival, a few hours behind Lucas''s.',
+		'2026-08-16T22:00:00.000Z', NULL, 'America/New_York', '2026-08-18T22:00:00.000Z',
+		'not_needed', 0, 0, NULL, '2026-08-16T22:00:00.000Z', '2026-08-16T22:00:00.000Z',
+		'2026-08-18T22:00:00.000Z'
+	),
+	(
+		10, 2, 2, NULL, 2, 'anna-orientation-week', 'remark', 'life', 'disorientation',
+		'published', 'family', 'en', 'Orientation week is a blur', NULL,
+		'Placeholder fixture text: a short remark about the first week of orientation.',
+		'2026-08-22T17:00:00.000Z', NULL, 'America/New_York', NULL,
+		'not_needed', 0, 0, NULL, '2026-08-22T17:00:00.000Z', '2026-08-22T17:00:00.000Z',
+		'2026-08-22T17:00:00.000Z'
+	),
+	(
+		11, 2, 2, 4, 3, 'anna-weekend-in-asheville', 'moment', 'trip', 'routine',
+		'published', 'public', 'en', 'Also in Asheville this weekend', 'Small world.',
+		'Placeholder fixture text: Anna''s group ended up in Asheville the same weekend as Lucas''s, without planning it.',
+		'2026-09-19T20:00:00.000Z', NULL, 'America/New_York', '2026-09-21T20:00:00.000Z',
+		'not_needed', 0, 0, NULL, '2026-09-19T20:00:00.000Z', '2026-09-19T20:00:00.000Z',
+		'2026-09-21T20:00:00.000Z'
 	);
 
 INSERT OR IGNORE INTO entry_texts (entry_id, lang, title, dek, body_md, status)
@@ -143,5 +188,12 @@ INSERT OR IGNORE INTO media (
 		'/fixtures/asheville-overlook.svg', '/fixtures/asheville-overlook.svg', '/fixtures/asheville-overlook.svg',
 		NULL, 'image/svg+xml', 1200, 900, NULL, NULL, '2026-09-20T14:00:00.000Z',
 		'The overlook outside Asheville.', 'A mountain overlook near Asheville.',
+		NULL, NULL, 0
+	),
+	(
+		4, 11, 2, 'photo',
+		'/fixtures/asheville-overlook.svg', '/fixtures/asheville-overlook.svg', '/fixtures/asheville-overlook.svg',
+		NULL, 'image/svg+xml', 1200, 900, NULL, NULL, '2026-09-19T19:30:00.000Z',
+		'Same overlook, different weekend group.', 'A mountain overlook near Asheville, Anna''s photo.',
 		NULL, NULL, 0
 	);

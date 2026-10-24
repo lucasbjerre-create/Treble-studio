@@ -16,6 +16,10 @@ export const people = sqliteTable('people', {
 	email: text('email'),
 	role: text('role').notNull(),
 	routeColor: text('route_color'),
+	// Scholar colour now comes from a seat (1-16, src/styles/tokens.css's
+	// [data-seat] rules), not routeColor - OVERNIGHT.md brand decision 5.
+	// Assigned alphabetically by surname at launch and never reshuffled.
+	seat: integer('seat'),
 	createdAt: text('created_at').notNull()
 });
 
