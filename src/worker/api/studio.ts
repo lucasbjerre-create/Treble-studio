@@ -261,10 +261,15 @@ studioApi.post('/media/presign', async (c) => {
 	for (const size of SIZES) {
 		const key = `media/${parsed.data.entryId}/${uploadId}-${size}.webp`;
 		keys[size] = key;
+		// No Content-Type on the signed request: when it's part of
+		// SignedHeaders, the browser's actual PUT must send back the exact
+		// same header value or R2 rejects the signature with a 403 that
+		// (confusingly) also looks like a CORS failure, since R2's error
+		// response doesn't carry CORS headers. mime is validated at commit
+		// time instead (see commitSchema below), not worth that fragility.
 		const signed = await client.sign(
 			new Request(`${r2Url}/${R2_BUCKET_NAME}/${key}?X-Amz-Expires=${PRESIGN_EXPIRY_SECONDS}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'image/webp' }
+				method: 'PUT'
 			}),
 			{ aws: { signQuery: true } }
 		);

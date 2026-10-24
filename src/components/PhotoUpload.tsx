@@ -67,9 +67,17 @@ async function resizeToWebp(bitmap: ImageBitmap, maxWidth: number): Promise<Blob
 export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded }: Props) {
 	const [inFlight, setInFlight] = useState<InFlightFile[]>([]);
 
-	async function processAndUpload(file: File) {
-		const key = `${file.name}-${file.lastModified}-${Math.random()}`;
-		setInFlight((prev) => [...prev, { key, name: file.name, status: { phase: 'processing' } }]);
+	// A retry reuses the same key so it updates the existing row instead of
+	// adding a second one - found live: a retry click looked like it did
+	// nothing because the new attempt's row was easy to miss below the
+	// still-failed original.
+	async function processAndUpload(file: File, existingKey?: string) {
+		const key = existingKey ?? `${file.name}-${file.lastModified}-${Math.random()}`;
+		if (existingKey) {
+			setInFlight((prev) => prev.map((f) => (f.key === key ? { ...f, status: { phase: 'processing' } } : f)));
+		} else {
+			setInFlight((prev) => [...prev, { key, name: file.name, status: { phase: 'processing' } }]);
+		}
 
 		function setStatus(status: FileStatus) {
 			setInFlight((prev) => prev.map((f) => (f.key === key ? { ...f, status } : f)));
@@ -150,7 +158,7 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded 
 			onUploaded(row, { latitude: gps?.latitude ?? null, longitude: gps?.longitude ?? null });
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Upload failed';
-			setStatus({ phase: 'error', message, retry: () => processAndUpload(file) });
+			setStatus({ phase: 'error', message, retry: () => processAndUpload(file, key) });
 		}
 	}
 
