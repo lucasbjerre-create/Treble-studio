@@ -83,6 +83,44 @@
 	border: 1px solid var(--color-border);
 }
 
+.city-lookup-row {
+	display: flex;
+	gap: var(--space-2);
+}
+
+.city-lookup-row input {
+	flex: 1;
+	min-height: 44px;
+	padding: 0 var(--space-2);
+	border: 1px solid var(--color-border);
+	background: var(--color-paper);
+	color: var(--color-ink);
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+}
+
+.city-lookup-row button {
+	min-height: 44px;
+	padding: 0 var(--space-3);
+	background: var(--color-paper);
+	border: 1px solid var(--color-border);
+	color: var(--color-ink);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.city-lookup-row button:disabled {
+	color: var(--color-muted);
+	cursor: default;
+}
+
+.new-place .attribution {
+	grid-column: 1 / -1;
+	font-size: var(--text-xs);
+	color: var(--color-muted);
+	margin: 0;
+}
+
 .save-row,
 .publish-row {
 	display: flex;

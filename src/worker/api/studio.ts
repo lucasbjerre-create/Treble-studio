@@ -10,6 +10,7 @@ import * as schema from '../../db/schema';
 import { publicCoordinatesForPrecision } from '../../lib/precision';
 import { slugify } from '../../lib/slug';
 import { verifyAccessRequest } from '../auth';
+import { geocodeCity, reverseGeocodeCity } from '../geocoding';
 
 type Variables = { accessEmail: string; personId: number };
 
@@ -203,6 +204,28 @@ studioApi.post('/places', async (c) => {
 		.returning();
 
 	return c.json(row, 201);
+});
+
+// City-level geocoding via Nominatim (OpenStreetMap), so Lucas can type a
+// city instead of coordinates. Explicit "look up" calls only - never
+// autocomplete-as-you-type, which Nominatim's usage policy forbids.
+studioApi.get('/geocode', async (c) => {
+	const q = c.req.query('q')?.trim();
+	if (!q) return c.json({ error: 'Missing query' }, 400);
+	const result = await geocodeCity(q);
+	if (!result) return c.json({ error: 'No match found' }, 404);
+	return c.json(result);
+});
+
+// Reverse geocoding for a photo's EXIF GPS coordinates, to auto-detect a
+// place without Lucas typing anything.
+studioApi.get('/geocode/reverse', async (c) => {
+	const lat = Number(c.req.query('lat'));
+	const lon = Number(c.req.query('lon'));
+	if (!Number.isFinite(lat) || !Number.isFinite(lon)) return c.json({ error: 'Invalid coordinates' }, 400);
+	const label = await reverseGeocodeCity(lat, lon);
+	if (!label) return c.json({ error: 'No match found' }, 404);
+	return c.json({ label });
 });
 
 // ---- media ----

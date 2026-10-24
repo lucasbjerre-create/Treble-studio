@@ -9,12 +9,18 @@ export interface MediaItem {
 	capturedAt: string | null;
 }
 
+export interface PhotoGpsHint {
+	latitude: number | null;
+	longitude: number | null;
+}
+
 interface Props {
 	entryId: number | null;
 	/** Creates (or returns the existing) entry id, called lazily on the first photo - lets "add a photo" be the first thing Lucas does, with the draft row created silently underneath it. */
 	ensureEntryId: () => Promise<number | null>;
 	media: MediaItem[];
-	onUploaded: (item: MediaItem) => void;
+	/** gps is this photo's own EXIF coordinates (not persisted as separate media columns, only inside exifJson), for auto-detecting a place. */
+	onUploaded: (item: MediaItem, gps: PhotoGpsHint) => void;
 }
 
 type SizeName = 'thumb' | 'display' | 'large';
@@ -75,6 +81,10 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded 
 
 			// Read EXIF before anything else touches the file (studio.md).
 			const exif = await exifr.parse(file, true).catch(() => undefined);
+			// exifr.gps() is the documented way to get both latitude and
+			// longitude reliably (parse()'s own output only guarantees
+			// latitude) - undefined when the photo has no GPS tags.
+			const gps = await exifr.gps(file).catch(() => undefined);
 			const originalBuffer = await file.arrayBuffer();
 			const sha256 = await sha256Hex(originalBuffer);
 
@@ -137,7 +147,7 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded 
 			const row = (await commitRes.json()) as MediaItem;
 
 			setStatus({ phase: 'done' });
-			onUploaded(row);
+			onUploaded(row, { latitude: gps?.latitude ?? null, longitude: gps?.longitude ?? null });
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Upload failed';
 			setStatus({ phase: 'error', message, retry: () => processAndUpload(file) });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import './EntryEditor.css';
 import { resolveEntryText, type Lang } from '../lib/translation';
-import PhotoUpload, { type MediaItem } from './PhotoUpload';
+import PhotoUpload, { type MediaItem, type PhotoGpsHint } from './PhotoUpload';
 
 interface Chapter {
 	id: number;
@@ -98,10 +98,16 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 	const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
 	const [newPlaceOpen, setNewPlaceOpen] = useState(false);
+	const [newPlaceQuery, setNewPlaceQuery] = useState('');
 	const [newPlaceLabel, setNewPlaceLabel] = useState('');
 	const [newPlacePrecision, setNewPlacePrecision] = useState<Place['precision']>('city');
-	const [newPlaceLat, setNewPlaceLat] = useState('');
-	const [newPlaceLon, setNewPlaceLon] = useState('');
+	const [newPlaceResolved, setNewPlaceResolved] = useState<{ lat: number; lon: number } | null>(null);
+	const [newPlaceLookingUp, setNewPlaceLookingUp] = useState(false);
+	const [newPlaceLookupError, setNewPlaceLookupError] = useState<string | null>(null);
+	// Whether placeId was set by Lucas picking from the dropdown or typing a
+	// new place, vs. auto-detected from a photo's GPS - once touched, a later
+	// photo's GPS never silently overrides his choice.
+	const [placeTouched, setPlaceTouched] = useState(initialEntry?.placeId != null);
 
 	const [reviewOpen, setReviewOpen] = useState(false);
 	const [publishing, setPublishing] = useState(false);
@@ -159,26 +165,87 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 		}
 	}
 
+	async function lookupPlace() {
+		if (!newPlaceQuery.trim()) return;
+		setNewPlaceLookingUp(true);
+		setNewPlaceLookupError(null);
+		try {
+			const res = await fetch(`/api/studio/geocode?q=${encodeURIComponent(newPlaceQuery.trim())}`);
+			if (!res.ok) throw new Error(res.status === 404 ? 'No match found - try a different spelling' : 'Lookup failed');
+			const result = (await res.json()) as { label: string; lat: number; lon: number };
+			setNewPlaceResolved({ lat: result.lat, lon: result.lon });
+			setNewPlaceLabel(result.label);
+		} catch (err) {
+			setNewPlaceResolved(null);
+			setNewPlaceLookupError(err instanceof Error ? err.message : 'Lookup failed');
+		} finally {
+			setNewPlaceLookingUp(false);
+		}
+	}
+
+	function resetNewPlaceForm() {
+		setNewPlaceOpen(false);
+		setNewPlaceQuery('');
+		setNewPlaceLabel('');
+		setNewPlaceResolved(null);
+		setNewPlaceLookupError(null);
+	}
+
 	async function addPlace() {
-		if (!newPlaceLabel.trim()) return;
+		if (!newPlaceLabel.trim() || !newPlaceResolved) return;
 		const res = await fetch('/api/studio/places', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				label: newPlaceLabel,
 				precision: newPlacePrecision,
-				latPrivate: newPlaceLat ? Number(newPlaceLat) : null,
-				lonPrivate: newPlaceLon ? Number(newPlaceLon) : null
+				latPrivate: newPlaceResolved.lat,
+				lonPrivate: newPlaceResolved.lon
 			})
 		});
 		if (!res.ok) return;
 		const place = (await res.json()) as Place;
 		setPlaces((prev) => [...prev, place]);
 		setPlaceId(place.id);
-		setNewPlaceOpen(false);
-		setNewPlaceLabel('');
-		setNewPlaceLat('');
-		setNewPlaceLon('');
+		setPlaceTouched(true);
+		resetNewPlaceForm();
+	}
+
+	/**
+	 * Auto-detects a place from a photo's EXIF GPS, via reverse geocoding -
+	 * reuses an existing place with the same label (case-insensitive) rather
+	 * than creating a duplicate every time. Defaults new auto-created places
+	 * to city-level precision, same as the manual city lookup: GPS is exact,
+	 * but an entry's audience may be public, and precision is a privacy
+	 * choice Lucas should make deliberately, not one a default silently picks.
+	 */
+	async function detectPlaceFromGps(gps: PhotoGpsHint) {
+		if (placeTouched || gps.latitude == null || gps.longitude == null) return;
+		try {
+			const res = await fetch(`/api/studio/geocode/reverse?lat=${gps.latitude}&lon=${gps.longitude}`);
+			if (!res.ok) return;
+			const { label } = (await res.json()) as { label: string };
+
+			const existing = places.find((p) => p.label.toLowerCase() === label.toLowerCase());
+			if (existing) {
+				setPlaceId(existing.id);
+				setPlaceTouched(true);
+				return;
+			}
+
+			const placeRes = await fetch('/api/studio/places', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ label, precision: 'city', latPrivate: gps.latitude, lonPrivate: gps.longitude })
+			});
+			if (!placeRes.ok) return;
+			const place = (await placeRes.json()) as Place;
+			setPlaces((prev) => [...prev, place]);
+			setPlaceId(place.id);
+			setPlaceTouched(true);
+		} catch {
+			// Best-effort - Lucas can still pick or add a place by hand.
+		}
 	}
 
 	async function confirmPublish() {
@@ -258,7 +325,13 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 
 				<label>
 					Place
-					<select value={placeId} onChange={(e) => setPlaceId(e.target.value ? Number(e.target.value) : '')}>
+					<select
+						value={placeId}
+						onChange={(e) => {
+							setPlaceTouched(true);
+							setPlaceId(e.target.value ? Number(e.target.value) : '');
+						}}
+					>
 						<option value="">None</option>
 						{places.map((p) => (
 							<option key={p.id} value={p.id}>
@@ -268,16 +341,39 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 					</select>
 				</label>
 
-				<button type="button" className="link-button" onClick={() => setNewPlaceOpen((v) => !v)}>
+				<button
+					type="button"
+					className="link-button"
+					onClick={() => (newPlaceOpen ? resetNewPlaceForm() : setNewPlaceOpen(true))}
+				>
 					{newPlaceOpen ? 'Cancel new place' : '+ Add a new place'}
 				</button>
 
 				{newPlaceOpen && (
 					<div className="new-place full">
-						<label>
-							Label
-							<input value={newPlaceLabel} onChange={(e) => setNewPlaceLabel(e.target.value)} />
+						<label className="full">
+							City
+							<div className="city-lookup-row">
+								<input
+									value={newPlaceQuery}
+									onChange={(e) => {
+										setNewPlaceQuery(e.target.value);
+										setNewPlaceResolved(null);
+									}}
+									placeholder="e.g. Chapel Hill"
+								/>
+								<button type="button" onClick={lookupPlace} disabled={newPlaceLookingUp || !newPlaceQuery.trim()}>
+									{newPlaceLookingUp ? 'Looking up…' : 'Look up'}
+								</button>
+							</div>
 						</label>
+						{newPlaceLookupError && <p className="error">{newPlaceLookupError}</p>}
+						{newPlaceResolved && (
+							<label className="full">
+								Found - name to save it as (edit if you like)
+								<input value={newPlaceLabel} onChange={(e) => setNewPlaceLabel(e.target.value)} />
+							</label>
+						)}
 						<label>
 							Precision
 							<select
@@ -291,17 +387,10 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 								))}
 							</select>
 						</label>
-						<label>
-							Latitude
-							<input value={newPlaceLat} onChange={(e) => setNewPlaceLat(e.target.value)} inputMode="decimal" />
-						</label>
-						<label>
-							Longitude
-							<input value={newPlaceLon} onChange={(e) => setNewPlaceLon(e.target.value)} inputMode="decimal" />
-						</label>
-						<button type="button" onClick={addPlace}>
+						<button type="button" onClick={addPlace} disabled={!newPlaceResolved || !newPlaceLabel.trim()}>
 							Save place
 						</button>
+						<p className="attribution">City lookup by OpenStreetMap / Nominatim.</p>
 					</div>
 				)}
 
@@ -380,11 +469,12 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 				entryId={entryId}
 				ensureEntryId={saveDraft}
 				media={media}
-				onUploaded={(item) => {
+				onUploaded={(item, gps) => {
 					setMedia((prev) => [...prev, item]);
 					if (!occurredAtTouched && item.capturedAt) {
 						setOccurredAtLocal(isoToLocalInputValue(item.capturedAt));
 					}
+					void detectPlaceFromGps(gps);
 				}}
 			/>
 
