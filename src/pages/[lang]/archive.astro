@@ -1,7 +1,13 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getDb } from '../../db/client';
-import { getPersonBySlug, listChaptersForPerson, listEntriesForViewer, listEntryTranslations } from '../../db/queries';
+import {
+	getPersonBySlug,
+	listChaptersForPerson,
+	listEntriesForViewer,
+	listEntryTranslations,
+	resolveViewerForPerson
+} from '../../db/queries';
 import { PRIMARY_PERSON_SLUG } from '../../config/site';
 import { isLocale, t, type Locale } from '../../i18n/t';
 import { groupEntriesByChapterAndMonth } from '../../lib/grouping';
@@ -25,7 +31,8 @@ if (!person) {
 	return new Response('Not found', { status: 404 });
 }
 
-const entries = await listEntriesForViewer(db, 'public', now, { personId: person.id, category });
+const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
+const entries = await listEntriesForViewer(db, viewer, now, { personId: person.id, category });
 const translations = await listEntryTranslations(
 	db,
 	entries.map((e) => e.id),
@@ -99,12 +106,12 @@ function filterHref(value: 'life' | 'school' | 'trip' | undefined): string {
 	.archive {
 		max-width: 38rem;
 		margin: 0 auto;
-		padding: var(--space-6) var(--space-4) var(--space-12);
+		padding: var(--space-6) var(--grid-margin) var(--space-12);
 	}
 
 	h1 {
 		font-family: var(--font-serif);
-		font-size: var(--text-2xl);
+		font-size: var(--text-h1);
 		margin: 0 0 var(--space-6);
 	}
 
@@ -113,20 +120,20 @@ function filterHref(value: 'life' | 'school' | 'trip' | undefined): string {
 		gap: var(--space-4);
 		margin-bottom: var(--space-8);
 		font-family: var(--font-sans);
-		font-size: var(--text-sm);
+		font-size: var(--text-small);
 	}
 
 	.filters a {
-		color: var(--color-muted);
+		color: var(--color-text-muted);
 		text-decoration: none;
-		min-height: 44px;
+		min-height: var(--touch-min);
 		display: flex;
 		align-items: center;
 	}
 
 	.filters a[aria-current='page'] {
-		color: var(--color-ink);
-		font-weight: 600;
+		color: var(--color-text);
+		font-weight: var(--weight-semibold);
 	}
 
 	.chapter-group {
@@ -135,15 +142,15 @@ function filterHref(value: 'life' | 'school' | 'trip' | undefined): string {
 
 	.chapter-group h2 {
 		font-family: var(--font-serif);
-		font-size: var(--text-lg);
+		font-size: var(--text-h3);
 		margin: 0 0 var(--space-4);
 	}
 
 	.month-group h3 {
 		font-family: var(--font-sans);
-		font-size: var(--text-sm);
-		color: var(--color-muted);
-		font-weight: 600;
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
+		font-weight: var(--weight-semibold);
 		margin: 0 0 var(--space-2);
 	}
 
@@ -155,16 +162,15 @@ function filterHref(value: 'life' | 'school' | 'trip' | undefined): string {
 
 	.month-group li a {
 		font-family: var(--font-serif);
-		font-size: var(--text-base);
-		color: var(--color-ink);
+		font-size: var(--text-body);
+		color: var(--color-text);
 		text-decoration: none;
-		display: block;
-		min-height: 44px;
 		display: flex;
 		align-items: center;
+		min-height: var(--touch-min);
 	}
 
 	.month-group li a:hover {
-		color: var(--color-accent);
+		color: var(--color-link);
 	}
 </style>

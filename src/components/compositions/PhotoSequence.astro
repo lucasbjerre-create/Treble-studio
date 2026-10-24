@@ -43,14 +43,14 @@ const paragraphs = paragraphsFrom(entry.bodyMd);
 
 	.title {
 		font-family: var(--font-serif);
-		font-size: var(--text-xl);
+		font-size: var(--text-h2);
 		margin: 0 0 var(--space-2);
 	}
 
 	.dek {
 		font-family: var(--font-sans);
-		font-size: var(--text-base);
-		color: var(--color-muted);
+		font-size: var(--text-body);
+		color: var(--color-text-muted);
 		margin: 0 0 var(--space-4);
 	}
 
@@ -63,15 +63,15 @@ const paragraphs = paragraphsFrom(entry.bodyMd);
 
 	.body {
 		font-family: var(--font-serif);
-		font-size: var(--text-base);
-		line-height: 1.6;
+		font-size: var(--text-body);
+		line-height: var(--leading-body);
 		margin: 0 0 var(--space-4);
 	}
 
 	.translation-note {
 		font-family: var(--font-sans);
-		font-size: var(--text-xs);
-		color: var(--color-muted);
+		font-size: var(--text-micro);
+		color: var(--color-text-muted);
 		font-style: italic;
 	}
 </style>

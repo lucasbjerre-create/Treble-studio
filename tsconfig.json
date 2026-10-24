@@ -6,7 +6,8 @@
     "./worker-configuration.d.ts"
   ],
   "exclude": [
-    "dist"
+    "dist",
+    "docs/brand"
   ],
   "compilerOptions": {
     "jsx": "react-jsx",

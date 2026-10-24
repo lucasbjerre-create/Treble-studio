@@ -58,7 +58,7 @@ A live location tracker. A country counting scoreboard. An influencer blog. A we
 | Reaching people | A Sunday email digest that is readable on its own, so nobody has to log in just to keep up. Link pasted into the family chat. RSS for anyone who wants it. |
 | Interaction | Three aggregate reactions and a private "Ask Lucas" box. No public comments. |
 | Design | Contemporary exchange magazine on warm off white. Film diary treatment for at most six feature chapters. Real scans of tickets and notes allowed as content, never as fake texture. |
-| Type | Source Serif 4 for titles and text, Inter for dates, captions and controls. Self hosted. |
+| Type | Source Serif 4 for titles and text, Schibsted Grotesk for headings/UI (dates, captions, controls), IBM Plex Mono for data. Self hosted via the TREBLE brand kit, see section 6. |
 | Map | MapLibre GL JS with a muted custom style. Hosted vector tiles (OpenFreeMap first), swappable through one config file. Flat and north up by default. |
 | Slider | Real calendar time with snapping to entries and chapters, plus previous and next buttons and chapter jumps. |
 | Data | D1 is the source of truth for inbox, drafts and entries from day one. Every publish also exports Markdown and JSON to R2. |
@@ -235,7 +235,9 @@ One marker per entry, never per photo. Built in clustering at low zoom. Past rou
 Value is calendar time. Snaps to entries and trip edges. Labels like "Week 9 · Chapel Hill · 12 to 18 Oct". Arrow keys move entry by entry, Shift plus arrow moves chapter by chapter. Every state has its own URL.
 
 **Design system**
-Warm off white, near black text, muted grey blue, one route accent. Four compositions only. Short dispatch, standard story, photo sequence, feature chapter. Original aspect ratios, no rounded corners, no shadows. Captions always visible. Motion 150 to 250 ms fades, none at all when reduced motion is on. Video starts muted on tap, captions expected, no soundtrack. Contrast at least 4.5 to 1 for text. Tap targets 44 px.
+The TREBLE brand kit (`docs/brand/`, decided 2026-10-24) is now the source of truth for palette, type, radius and shadow, replacing the warm-off-white/near-black/muted-grey-blue/route-accent placeholder this section used to describe. Role tokens in `src/styles/tokens.css`: warm paper background, near-black ink text, the three institutional blues (CBS, Carolina, SMU) as ink and interactive colour only, never large fills - adjacent chambray/steel/periwinkle/slate tones carry large areas instead. Radii are small on purpose (hairline to 12px, pill for badges and the language toggle), not strictly zero - the old "no rounded corners" rule is relaxed to what the kit specifies. Shadows stay warm, low and rare, used only where the kit calls for them (the studio review panel's modal layer). Four compositions only. Short dispatch, standard story, photo sequence, feature chapter. Original aspect ratios. Captions always visible. Motion 140 to 360 ms, none at all when reduced motion is on. Video starts muted on tap, captions expected, no soundtrack. Contrast at least 4.5 to 1 for text - the kit's own rule that Carolina Blue is never text on a light background is part of this. Tap targets 44px (the kit's `--touch-min`).
+
+Scholar colours come from a `seat` integer (1-16) on `people`, not a freeform `route_color` string - eight hues, two line patterns (solid for seats 1-8, dashed for 9-16), assigned alphabetically by surname at launch and never reshuffled. Visibility badges always carry both a word and an icon, never colour alone: `public` shows as Public/Offentlig, `family` as Followers only/Kun følgere, `private` as Only me/Kun mig - the underlying audience values are unchanged. The `Logo` component wraps the kit's SVG lockup/mark/descriptor files; the lockup shows on wide screens, the mark alone on phones, the paper variant on dark backgrounds (there is no full-colour variant for dark - the navy bar disappears). The wordmark in the kit is a stand-in typeface (Jost, outlined), noted here per the kit's own README until the programme office confirms the real face.
 
 **Small touches worth keeping**
 Transport glyph changes by leg. Chapter stamps like "UNC · Fall 2026". A "Where was Lucas then?" date picker. Margin notes from remarks. An end of year replay in version 3.
@@ -473,12 +475,13 @@ Only if at least two students actually want it. Separate repo, fictional sample 
 
 **Settled**
 - Custom domain: `treble.cordoza.dk`, a subdomain of Lucas's existing `cordoza.dk`. Decided 2026-10-23, not for branding but because Cloudflare Access's path-scoped applications require a DNS zone the account owns, which the shared `workers.dev` domain isn't - /studio couldn't be gated without it. The Worker's `workers.dev` URL is now disabled (Wrangler's default once a custom domain route is set).
+- Route accent colour (item 4 below): settled by the TREBLE brand kit, decided 2026-10-24. There is no single bespoke "route accent" any more - interactive colour is the kit's `--color-link` (CBS blue, ink only), and routes/trails on the map use each scholar's seat colour (section 6) rather than one shared accent. The "muted red placeholder" token this item used to point at is gone.
 
 **Needed before building**
 1. Audience model. Family first with opt in public entries (this file's default), or public first with a family layer on top.
 2. Who goes on the family allowlist, and whether grandparents can manage email codes or rely on the digest.
 3. Which language a first time visitor lands on when the browser gives no clear signal.
-4. Route accent color.
+4. ~~Route accent color.~~ Settled, see above.
 5. Does the whole Sunday flow have to work on the phone, or is a laptop fine for parts of it.
 6. Exact delay for everyday entries, and whether area level is ever allowed.
 7. Max clip length and size.

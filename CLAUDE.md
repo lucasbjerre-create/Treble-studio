@@ -8,7 +8,8 @@ A personal journal for Lucas's exchange year (UNC Chapel Hill fall 2026, SMU Sin
 - When Lucas settles a decision from section 14 of the spec, update the spec in the same change.
 
 ## Stack
-- Astro with TypeScript in strict mode. Plain CSS with design tokens in `src/styles/tokens.css`. No Tailwind, no CSS frameworks.
+- Astro with TypeScript in strict mode. Plain CSS with design tokens in `src/styles/tokens.css`, sourced from the TREBLE brand kit (`docs/brand/`, reference only - never add `docs/brand/tailwind.config.js` or `docs/brand/treble-theme.css` to the build). The kit's palette, fonts, radii and shadows replace the old placeholders; see spec section 6. Fonts are self-hosted via `@fontsource/schibsted-grotesk`, `@fontsource-variable/source-serif-4` and `@fontsource/ibm-plex-mono` - never the kit's own Google Fonts `@import`. No Tailwind, no CSS frameworks.
+- The `Logo` component (`src/components/Logo.astro`) wraps the kit's SVG files (`public/brand/logos/`). Never edit the SVG geometry or animate the logo.
 - React only for islands. `TimelineExplorer` owns map, slider, active entry and camera. `/studio` is its own React app.
 - One Cloudflare Worker with static assets. Hono handles `/api/*`, mounted through a single Astro catch-all endpoint.
 - D1 through Drizzle. Schema in `src/db/schema.ts`, SQL migrations in `migrations/`. Zod validates every API input.

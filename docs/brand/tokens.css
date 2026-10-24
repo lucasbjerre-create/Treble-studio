@@ -1,0 +1,363 @@
+/* TREBLE design tokens
+   Drop this file into the project and import it once, before anything else.
+   Light is the default. Dark follows the system unless <html data-theme="light|dark"> is set.
+   Raw palette values never change between modes. Use the role tokens in components. */
+
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&display=swap");
+
+:root {
+  /* Institutional blues. Ink only, never large fills. Order is CBS, UNC, SMU, as in the mark. */
+  --treble-cbs: #4967AA;        /* CBS Blue, Pantone 661 U / 7455 C */
+  --treble-unc: #4B9CD3;        /* Carolina Blue, Pantone 542 (web value) */
+  --treble-smu: #141C52;        /* SMU Blue, Pantone 2766 C */
+  --treble-smu-gold: #8A704C;   /* SMU gold, Pantone 873 C, accent only */
+
+  /* Adjacent tones. These carry large areas. */
+  --adj-chambray: #A9C0D2;
+  --adj-steel: #C3D0D8;
+  --adj-periwinkle: #7C87A8;
+  --adj-slate: #3E4763;
+  --adj-navy: #1C2340;
+
+  /* Neutrals, from the build file */
+  --neutral-optic: #F4F2ED;
+  --neutral-bone: #E8E2D6;
+  --neutral-oat: #D5CBB8;
+  --neutral-sand: #CBBBA0;
+  --neutral-cement: #A9A69F;
+  --neutral-mid: #6E6E6B;
+  --neutral-charcoal: #3D3B38;
+  --neutral-offblack: #1E1B18;
+
+  /* Role tokens, light */
+  --color-bg: #F4F2ED;
+  --color-surface: #FBFAF7;
+  --color-surface-sunken: #E8E2D6;
+  --color-surface-inverse: #141C52;
+  --color-overlay: rgb(20 28 82 / 0.42);
+  --color-text: #1E1B18;
+  --color-text-muted: #5C5A55;
+  --color-text-subtle: #6E6E6B;
+  --color-text-inverse: #F4F2ED;
+  --color-heading: #141C52;
+  --color-link: #4967AA;
+  --color-link-hover: #141C52;
+  --color-border: #D5CBB8;
+  --color-border-strong: #8F8B83;
+  --color-focus: #4967AA;
+  --color-primary: #141C52;
+  --color-primary-hover: #1C2340;
+  --color-on-primary: #F4F2ED;
+  --color-accent-area: #A9C0D2;   /* chambray band, hero strips, selected rows */
+  --color-success: #2E6B4A;
+  --color-success-bg: #E3EDE6;
+  --color-warning: #8A5A0B;
+  --color-warning-bg: #F3E9D3;
+  --color-error: #A6362B;
+  --color-error-bg: #F5E1DD;
+  --color-info: #4967AA;
+  --color-public: #2E6B4A;
+  --color-private: #3E4763;
+
+  /* Map, light */
+  --map-land: #EDEAE3;
+  --map-water: #C9D5DC;
+  --map-park: #E1E3D6;
+  --map-building: #E4E0D7;
+  --map-road: #FFFFFF;
+  --map-road-major: #FBFAF7;
+  --map-boundary: #C4BBAC;
+  --map-label: #6E6E6B;
+  --map-label-halo: #EDEAE3;
+  --map-trail-casing: #F4F2ED;
+  --map-campus: #141C52;
+  --map-campus-glyph: #F4F2ED;
+  --map-dimmed: #A9A69F;
+
+  /* Scholar colours, light. Eight hues, two line patterns, sixteen seats.
+     Every hue holds 3:1 against --map-land. Pairs stay apart under protan, deutan and tritan simulation. */
+  --scholar-fjord: #003072;
+  --scholar-sky: #2D8BD9;
+  --scholar-ochre: #A46907;
+  --scholar-brick: #9B2902;
+  --scholar-pine: #016051;
+  --scholar-plum: #7C51A1;
+  --scholar-rose: #DD5A7A;
+  --scholar-ink: #2A2316;
+  --scholar-on: #FFFFFF;          /* initials on most scholar hues */
+  --scholar-on-alt: #1E1B18;      /* initials on sky and rose, which are too light for white */
+
+  /* Type */
+  --font-sans: "Schibsted Grotesk", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-serif: "Source Serif 4", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-display: clamp(2.5rem, 1.7rem + 3.6vw, 4.5rem);
+  --text-h1: clamp(2rem, 1.55rem + 2vw, 3rem);
+  --text-h2: clamp(1.5rem, 1.3rem + 0.9vw, 2rem);
+  --text-h3: 1.25rem;
+  --text-h4: 1rem;
+  --text-body-lg: 1.1875rem;
+  --text-body: 1.0625rem;
+  --text-ui: 0.9375rem;
+  --text-small: 0.8125rem;
+  --text-micro: 0.75rem;
+
+  --leading-display: 1.02;
+  --leading-h1: 1.08;
+  --leading-h2: 1.15;
+  --leading-h3: 1.25;
+  --leading-h4: 1.35;
+  --leading-body: 1.6;
+  --leading-ui: 1.45;
+  --leading-small: 1.4;
+
+  --tracking-display: -0.03em;
+  --tracking-h1: -0.025em;
+  --tracking-h2: -0.02em;
+  --tracking-h3: -0.01em;
+  --tracking-body: 0;
+  --tracking-mono: 0.02em;
+  --tracking-eyebrow: 0.14em;     /* echoes the wide tracking of the wordmark */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --measure: 66ch;
+
+  /* Spacing, 4px base */
+  --space-0: 0;
+  --space-0-5: 0.125rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --space-32: 8rem;
+
+  /* Layout */
+  --grid-columns: 4;
+  --grid-gutter: 1rem;
+  --grid-margin: 1rem;
+  --content-max: 75rem;
+  --nav-height: 3.5rem;
+  --touch-min: 2.75rem;
+
+  /* Radii. Small on purpose. */
+  --radius-none: 0;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Borders */
+  --border-hairline: 1px solid var(--color-border);
+  --border-strong: 1px solid var(--color-border-strong);
+
+  /* Shadows. Warm, low, rare. */
+  --shadow-sm: 0 1px 2px rgb(30 27 24 / 0.06), 0 1px 1px rgb(30 27 24 / 0.04);
+  --shadow-md: 0 4px 12px rgb(30 27 24 / 0.08), 0 1px 3px rgb(30 27 24 / 0.06);
+  --shadow-lg: 0 16px 40px rgb(30 27 24 / 0.12), 0 4px 10px rgb(30 27 24 / 0.06);
+  --shadow-focus: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-focus);
+
+  /* Motion */
+  --duration-instant: 80ms;
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+  --duration-map: 1200ms;
+  --duration-trail: 900ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-map: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Layers */
+  --z-map: 0;
+  --z-map-ui: 10;
+  --z-sheet: 20;
+  --z-nav: 30;
+  --z-popover: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+
+  color-scheme: light;
+}
+
+/* Dark role tokens. Raw palette above is untouched. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #10142A;
+    --color-surface: #181E3B;
+    --color-surface-sunken: #0B0E1F;
+    --color-surface-inverse: #F4F2ED;
+    --color-overlay: rgb(5 7 18 / 0.6);
+    --color-text: #F4F2ED;
+    --color-text-muted: #B9B5AC;
+    --color-text-subtle: #A9A69F;
+    --color-text-inverse: #141C52;
+    --color-heading: #F4F2ED;
+    --color-link: #4B9CD3;
+    --color-link-hover: #A9C0D2;
+    --color-border: #2C3459;
+    --color-border-strong: #6B76A8;
+    --color-focus: #4B9CD3;
+    --color-primary: #E8E2D6;
+    --color-primary-hover: #F4F2ED;
+    --color-on-primary: #141C52;
+    --color-accent-area: #1C2340;
+    --color-success: #7CC4A0;
+    --color-success-bg: #16302A;
+    --color-warning: #E2B45C;
+    --color-warning-bg: #352A14;
+    --color-error: #F08A7E;
+    --color-error-bg: #3A1D1E;
+    --color-info: #4B9CD3;
+    --color-public: #7CC4A0;
+    --color-private: #A9C0D2;
+    --map-land: #151A31;
+    --map-water: #0D1124;
+    --map-park: #182235;
+    --map-building: #1B2140;
+    --map-road: #232A4A;
+    --map-road-major: #2C3459;
+    --map-boundary: #3A4268;
+    --map-label: #A9A69F;
+    --map-label-halo: #151A31;
+    --map-trail-casing: #10142A;
+    --map-campus: #E8E2D6;
+    --map-campus-glyph: #141C52;
+    --map-dimmed: #4A5070;
+    --scholar-fjord: #A7C3F6;
+    --scholar-sky: #18A8FC;
+    --scholar-ochre: #EFC983;
+    --scholar-brick: #F05E35;
+    --scholar-pine: #4D987F;
+    --scholar-plum: #8D78BF;
+    --scholar-rose: #FE99B1;
+    --scholar-ink: #F3ECDE;
+    --scholar-on: #10142A;
+  --scholar-on-alt: #10142A;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.35);
+    --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --color-bg: #10142A;
+  --color-surface: #181E3B;
+  --color-surface-sunken: #0B0E1F;
+  --color-surface-inverse: #F4F2ED;
+  --color-overlay: rgb(5 7 18 / 0.6);
+  --color-text: #F4F2ED;
+  --color-text-muted: #B9B5AC;
+  --color-text-subtle: #A9A69F;
+  --color-text-inverse: #141C52;
+  --color-heading: #F4F2ED;
+  --color-link: #4B9CD3;
+  --color-link-hover: #A9C0D2;
+  --color-border: #2C3459;
+  --color-border-strong: #6B76A8;
+  --color-focus: #4B9CD3;
+  --color-primary: #E8E2D6;
+  --color-primary-hover: #F4F2ED;
+  --color-on-primary: #141C52;
+  --color-accent-area: #1C2340;
+  --color-success: #7CC4A0;
+  --color-success-bg: #16302A;
+  --color-warning: #E2B45C;
+  --color-warning-bg: #352A14;
+  --color-error: #F08A7E;
+  --color-error-bg: #3A1D1E;
+  --color-info: #4B9CD3;
+  --color-public: #7CC4A0;
+  --color-private: #A9C0D2;
+  --map-land: #151A31;
+  --map-water: #0D1124;
+  --map-park: #182235;
+  --map-building: #1B2140;
+  --map-road: #232A4A;
+  --map-road-major: #2C3459;
+  --map-boundary: #3A4268;
+  --map-label: #A9A69F;
+  --map-label-halo: #151A31;
+  --map-trail-casing: #10142A;
+  --map-campus: #E8E2D6;
+  --map-campus-glyph: #141C52;
+  --map-dimmed: #4A5070;
+  --scholar-fjord: #A7C3F6;
+  --scholar-sky: #18A8FC;
+  --scholar-ochre: #EFC983;
+  --scholar-brick: #F05E35;
+  --scholar-pine: #4D987F;
+  --scholar-plum: #8D78BF;
+  --scholar-rose: #FE99B1;
+  --scholar-ink: #F3ECDE;
+  --scholar-on: #10142A;
+  --scholar-on-alt: #10142A;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.45);
+  color-scheme: dark;
+}
+
+/* Grid steps, mobile first */
+@media (min-width: 768px) {
+  :root { --grid-columns: 8; --grid-gutter: 1.5rem; --grid-margin: 2rem; --nav-height: 4rem; }
+}
+@media (min-width: 1024px) {
+  :root { --grid-columns: 12; --grid-gutter: 1.5rem; --grid-margin: 3rem; }
+}
+
+/* Motion off when asked */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+    --duration-map: 0ms;
+    --duration-trail: 0ms;
+  }
+}
+
+/* Base, small and opinionated */
+html { font-family: var(--font-sans); font-size: 100%; color: var(--color-text); background: var(--color-bg); -webkit-text-size-adjust: 100%; }
+body { margin: 0; font-size: var(--text-ui); line-height: var(--leading-ui); font-feature-settings: "ss01" 0; text-rendering: optimizeLegibility; }
+h1, h2, h3, h4 { color: var(--color-heading); font-weight: var(--weight-medium); margin: 0; text-wrap: balance; }
+h1 { font-size: var(--text-h1); line-height: var(--leading-h1); letter-spacing: var(--tracking-h1); }
+h2 { font-size: var(--text-h2); line-height: var(--leading-h2); letter-spacing: var(--tracking-h2); }
+h3 { font-size: var(--text-h3); line-height: var(--leading-h3); letter-spacing: var(--tracking-h3); font-weight: var(--weight-semibold); }
+h4 { font-size: var(--text-h4); line-height: var(--leading-h4); font-weight: var(--weight-semibold); }
+a { color: var(--color-link); text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
+a:hover { color: var(--color-link-hover); }
+:focus-visible { outline: none; box-shadow: var(--shadow-focus); border-radius: var(--radius-xs); }
+.t-prose { font-family: var(--font-serif); font-size: var(--text-body); line-height: var(--leading-body); max-width: var(--measure); font-optical-sizing: auto; text-wrap: pretty; }
+.t-eyebrow { font-family: var(--font-sans); font-size: var(--text-micro); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-eyebrow); text-transform: uppercase; color: var(--color-text-muted); }
+.t-data { font-family: var(--font-mono); font-size: var(--text-small); letter-spacing: var(--tracking-mono); font-variant-numeric: tabular-nums; }
+
+/* Scholar seat helpers. Seats 1 to 8 solid, 9 to 16 dashed. */
+[data-seat="1"],  [data-seat="9"]  { --scholar: var(--scholar-fjord); }
+[data-seat="2"],  [data-seat="10"] { --scholar: var(--scholar-ochre); }
+[data-seat="3"],  [data-seat="11"] { --scholar: var(--scholar-pine); }
+[data-seat="4"],  [data-seat="12"] { --scholar: var(--scholar-rose); }
+[data-seat="5"],  [data-seat="13"] { --scholar: var(--scholar-sky); }
+[data-seat="6"],  [data-seat="14"] { --scholar: var(--scholar-brick); }
+[data-seat="7"],  [data-seat="15"] { --scholar: var(--scholar-plum); }
+[data-seat="8"],  [data-seat="16"] { --scholar: var(--scholar-ink); }
+[data-seat] { --scholar-dash: none; --scholar-text: var(--scholar-on); }
+[data-seat="4"], [data-seat="12"], [data-seat="5"], [data-seat="13"] { --scholar-text: var(--scholar-on-alt); }
+[data-seat="9"], [data-seat="10"], [data-seat="11"], [data-seat="12"], [data-seat="13"], [data-seat="14"], [data-seat="15"], [data-seat="16"] { --scholar-dash: 6 4; }
+
+/* Photo treatment for uploads. Light, consistent, removable. */
+.photo { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-xs); background: var(--color-surface-sunken); filter: saturate(0.94) contrast(0.98); }
+.photo--full { filter: none; }

@@ -1,5 +1,6 @@
 ---
 import '../styles/tokens.css';
+import Logo from '../components/Logo.astro';
 
 interface Props {
 	title: string;
@@ -14,12 +15,19 @@ const email = Astro.locals.accessEmail;
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="icon" href="/favicon.ico" sizes="48x48" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<meta name="theme-color" content="#F4F2ED" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#10142A" media="(prefers-color-scheme: dark)" />
 		<title>{title} - Studio</title>
 	</head>
 	<body>
 		<header class="studio-header">
-			<a href="/studio">Studio</a>
+			<a href="/studio" class="studio-brand">
+				<Logo variant="mark" alt="TREBLE" height="1.25rem" />
+				<span class="studio-label">Studio</span>
+			</a>
 			{email && <span class="email">{email}</span>}
 		</header>
 		<slot />
@@ -31,19 +39,28 @@ const email = Astro.locals.accessEmail;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: var(--space-4);
-		border-bottom: 1px solid var(--color-border);
+		min-height: var(--nav-height);
+		padding: 0 var(--grid-margin);
+		border-bottom: var(--border-hairline);
 		font-family: var(--font-sans);
 	}
 
-	.studio-header a {
-		color: var(--color-ink);
+	.studio-brand {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		color: var(--color-text);
 		text-decoration: none;
-		font-weight: 600;
+		font-weight: var(--weight-semibold);
+		min-height: var(--touch-min);
+	}
+
+	.studio-label {
+		font-size: var(--text-body);
 	}
 
 	.email {
-		font-size: var(--text-sm);
-		color: var(--color-muted);
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
 	}
 </style>

@@ -1,0 +1,285 @@
+{
+  "_note": "Colours mirror tokens.css. Built for MapLibre GL JS with a Protomaps basemap served from Cloudflare R2, but any vector style can take these values.",
+  "base": {
+    "light": {
+      "land": "#EDEAE3",
+      "water": "#C9D5DC",
+      "park": "#E1E3D6",
+      "building": "#E4E0D7",
+      "road": "#FFFFFF",
+      "road-major": "#FBFAF7",
+      "boundary": "#C4BBAC",
+      "label": "#6E6E6B",
+      "label-halo": "#EDEAE3",
+      "trail-casing": "#F4F2ED",
+      "campus": "#141C52",
+      "campus-glyph": "#F4F2ED",
+      "dimmed": "#A9A69F"
+    },
+    "dark": {
+      "land": "#151A31",
+      "water": "#0D1124",
+      "park": "#182235",
+      "building": "#1B2140",
+      "road": "#232A4A",
+      "road-major": "#2C3459",
+      "boundary": "#3A4268",
+      "label": "#A9A69F",
+      "label-halo": "#151A31",
+      "trail-casing": "#10142A",
+      "campus": "#E8E2D6",
+      "campus-glyph": "#141C52",
+      "dimmed": "#4A5070"
+    }
+  },
+  "scholars": {
+    "light": {
+      "fjord": "#003072",
+      "sky": "#2D8BD9",
+      "ochre": "#A46907",
+      "brick": "#9B2902",
+      "pine": "#016051",
+      "plum": "#7C51A1",
+      "rose": "#DD5A7A",
+      "ink": "#2A2316",
+      "on": "#FFFFFF",
+      "on_alt": "#1E1B18"
+    },
+    "dark": {
+      "fjord": "#A7C3F6",
+      "sky": "#18A8FC",
+      "ochre": "#EFC983",
+      "brick": "#F05E35",
+      "pine": "#4D987F",
+      "plum": "#8D78BF",
+      "rose": "#FE99B1",
+      "ink": "#F3ECDE",
+      "on": "#10142A",
+      "on_alt": "#10142A"
+    },
+    "seats": [
+      {
+        "seat": 1,
+        "hue": "fjord",
+        "dash": null
+      },
+      {
+        "seat": 2,
+        "hue": "ochre",
+        "dash": null
+      },
+      {
+        "seat": 3,
+        "hue": "pine",
+        "dash": null
+      },
+      {
+        "seat": 4,
+        "hue": "rose",
+        "dash": null
+      },
+      {
+        "seat": 5,
+        "hue": "sky",
+        "dash": null
+      },
+      {
+        "seat": 6,
+        "hue": "brick",
+        "dash": null
+      },
+      {
+        "seat": 7,
+        "hue": "plum",
+        "dash": null
+      },
+      {
+        "seat": 8,
+        "hue": "ink",
+        "dash": null
+      },
+      {
+        "seat": 9,
+        "hue": "fjord",
+        "dash": [
+          2,
+          1.4
+        ]
+      },
+      {
+        "seat": 10,
+        "hue": "ochre",
+        "dash": [
+          2,
+          1.4
+        ]
+      },
+      {
+        "seat": 11,
+        "hue": "pine",
+        "dash": [
+          2,
+          1.4
+        ]
+      },
+      {
+        "seat": 12,
+        "hue": "rose",
+        "dash": [
+          2,
+          1.4
+        ]
+      },
+      {
+        "seat": 13,
+        "hue": "sky",
+        "dash": [
+          2,
+          1.4
+        ]
+      },
+      {
+        "seat": 14,
+        "hue": "brick",
+        "dash": [
+          2,
+          1.4
+        ]
+      },
+      {
+        "seat": 15,
+        "hue": "plum",
+        "dash": [
+          2,
+          1.4
+        ]
+      },
+      {
+        "seat": 16,
+        "hue": "ink",
+        "dash": [
+          2,
+          1.4
+        ]
+      }
+    ],
+    "_rule": "Seat is fixed per scholar for the whole year. Assign alphabetically by surname at launch and never reshuffle.",
+    "_initials": "Use on_alt for sky and rose in light mode. Everything else uses on."
+  },
+  "campuses": [
+    {
+      "id": "chapel-hill",
+      "name_en": "Chapel Hill",
+      "name_da": "Chapel Hill",
+      "code": "RDU",
+      "lng": -79.0469,
+      "lat": 35.9049,
+      "glyph": "icons/campus_chapel-hill.svg",
+      "school_colour": "--treble-unc"
+    },
+    {
+      "id": "copenhagen",
+      "name_en": "Copenhagen",
+      "name_da": "København",
+      "code": "CPH",
+      "lng": 12.5292,
+      "lat": 55.6814,
+      "glyph": "icons/campus_copenhagen.svg",
+      "school_colour": "--treble-cbs"
+    },
+    {
+      "id": "singapore",
+      "name_en": "Singapore",
+      "name_da": "Singapore",
+      "code": "SIN",
+      "lng": 103.85,
+      "lat": 1.2966,
+      "glyph": "icons/campus_singapore.svg",
+      "school_colour": "--treble-smu"
+    }
+  ],
+  "trail": {
+    "ground": {
+      "line-width": [
+        "interpolate",
+        [
+          "linear"
+        ],
+        [
+          "zoom"
+        ],
+        2,
+        1.5,
+        8,
+        2.5,
+        14,
+        3.5
+      ],
+      "line-opacity": 1,
+      "line-cap": "round",
+      "line-join": "round"
+    },
+    "flight": {
+      "geometry": "great circle arc",
+      "line-width": [
+        "interpolate",
+        [
+          "linear"
+        ],
+        [
+          "zoom"
+        ],
+        2,
+        1,
+        8,
+        1.5
+      ],
+      "line-opacity": 0.7
+    },
+    "casing": {
+      "extra_width": 2,
+      "colour": "map-trail-casing"
+    },
+    "future": {
+      "line-opacity": 0.35
+    },
+    "dimmed": {
+      "colour": "map-dimmed",
+      "line-opacity": 0.5,
+      "_when": "another scholar is focused"
+    },
+    "focused": {
+      "line-width_multiplier": 1.4
+    }
+  },
+  "markers": {
+    "scholar": {
+      "shape": "circle",
+      "size": 28,
+      "ring": 2,
+      "label": "initials, 2 or 3 letters"
+    },
+    "upload": {
+      "shape": "rounded square photo",
+      "size": 36,
+      "radius": 4,
+      "ring": 2
+    },
+    "crossing": {
+      "shape": "pill with bars",
+      "height": 22,
+      "max_bars": 5
+    },
+    "campus": {
+      "shape": "square tile",
+      "size": 32,
+      "radius": 4
+    },
+    "cluster": {
+      "shape": "circle",
+      "min_size": 28,
+      "text": "count"
+    }
+  },
+  "crossing_rule": "Two or more scholars within 2 km of each other on the same local calendar day. Merge consecutive days at the same place into one crossing."
+}

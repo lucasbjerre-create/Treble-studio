@@ -7,7 +7,8 @@ import {
 	getPersonBySlug,
 	listChaptersForPerson,
 	listEntriesForViewer,
-	listMediaForEntry
+	listMediaForEntry,
+	resolveViewerForPerson
 } from '../../db/queries';
 import { PRIMARY_PERSON_SLUG } from '../../config/site';
 import { isLocale, t, type Locale } from '../../i18n/t';
@@ -29,7 +30,8 @@ if (!person) {
 	return new Response('Not found', { status: 404 });
 }
 
-const entries = await listEntriesForViewer(db, 'public', now, { personId: person.id });
+const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
+const entries = await listEntriesForViewer(db, viewer, now, { personId: person.id });
 const latest = entries[0];
 
 const chapters = await listChaptersForPerson(db, person.id);
@@ -48,7 +50,7 @@ if (latest) {
 	);
 	resolvedTitle = resolved.title;
 	resolvedDek = resolved.dek;
-	media = await listMediaForEntry(db, 'public', latest.id, now);
+	media = await listMediaForEntry(db, viewer, latest.id, now);
 }
 ---
 
@@ -58,14 +60,14 @@ if (latest) {
 
 		<svg class="route-schematic" viewBox="0 0 600 80" role="img" aria-label="Copenhagen to Chapel Hill to Singapore to home">
 			<line x1="30" y1="40" x2="570" y2="40" stroke="var(--color-border)" stroke-width="2" />
-			<circle cx="30" cy="40" r="6" fill="var(--color-muted)" />
-			<circle cx="220" cy="40" r="6" fill="var(--color-accent)" />
+			<circle cx="30" cy="40" r="6" fill="var(--color-text-muted)" />
+			<circle cx="220" cy="40" r="6" fill="var(--color-link)" />
 			<circle cx="410" cy="40" r="6" fill="var(--color-border)" />
 			<circle cx="570" cy="40" r="6" fill="var(--color-border)" />
-			<text x="30" y="68" font-size="12" fill="var(--color-muted)" text-anchor="middle">CPH</text>
-			<text x="220" y="68" font-size="12" fill="var(--color-ink)" text-anchor="middle">UNC</text>
-			<text x="410" y="68" font-size="12" fill="var(--color-muted)" text-anchor="middle">SMU</text>
-			<text x="570" y="68" font-size="12" fill="var(--color-muted)" text-anchor="middle">Home</text>
+			<text x="30" y="68" font-size="12" fill="var(--color-text-muted)" text-anchor="middle">CPH</text>
+			<text x="220" y="68" font-size="12" fill="var(--color-text)" text-anchor="middle">UNC</text>
+			<text x="410" y="68" font-size="12" fill="var(--color-text-muted)" text-anchor="middle">SMU</text>
+			<text x="570" y="68" font-size="12" fill="var(--color-text-muted)" text-anchor="middle">Home</text>
 		</svg>
 
 		{
@@ -103,13 +105,13 @@ if (latest) {
 	.home {
 		max-width: 38rem;
 		margin: 0 auto;
-		padding: var(--space-6) var(--space-4) var(--space-12);
+		padding: var(--space-6) var(--grid-margin) var(--space-12);
 	}
 
 	.chapter-banner {
 		font-family: var(--font-sans);
-		font-size: var(--text-sm);
-		color: var(--color-muted);
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
 		margin: 0 0 var(--space-6);
 	}
 
@@ -121,37 +123,37 @@ if (latest) {
 
 	.eyebrow {
 		font-family: var(--font-sans);
-		font-size: var(--text-xs);
+		font-size: var(--text-micro);
 		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-muted);
+		letter-spacing: var(--tracking-eyebrow);
+		color: var(--color-text-muted);
 		margin: 0 0 var(--space-2);
 	}
 
 	.latest-link {
-		color: var(--color-ink);
+		color: var(--color-text);
 		text-decoration: none;
 	}
 
 	.latest-link h2 {
 		font-family: var(--font-serif);
-		font-size: var(--text-xl);
+		font-size: var(--text-h2);
 		margin: 0 0 var(--space-2);
 	}
 
 	.dek {
 		font-family: var(--font-sans);
-		color: var(--color-muted);
+		color: var(--color-text-muted);
 		margin: 0 0 var(--space-4);
 	}
 
 	.explore-map {
 		margin-top: var(--space-8);
 		font-family: var(--font-sans);
-		font-size: var(--text-sm);
+		font-size: var(--text-small);
 	}
 
 	.muted {
-		color: var(--color-muted);
+		color: var(--color-text-muted);
 	}
 </style>

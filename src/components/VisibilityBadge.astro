@@ -1,0 +1,82 @@
+---
+// OVERNIGHT.md brand decision 6: visibility labels in the UI, database
+// values stay public/family/private. Every badge has a word AND an icon,
+// never colour alone, so this never renders colour-only.
+import { t, type Locale } from '../i18n/t';
+
+interface Props {
+	audience: 'public' | 'family' | 'private';
+	lang: Locale;
+	class?: string;
+}
+
+const { audience, lang, class: className } = Astro.props;
+const dict = t(lang);
+const label = dict.visibility[audience];
+---
+
+<span class:list={['visibility-badge', `visibility-badge--${audience}`, className]}>
+	{
+		audience === 'public' && (
+			<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+				<path
+					fill="currentColor"
+					d="M8 2.5c-3 0-5.3 2-6 5 .7 3 3 5 6 5s5.3-2 6-5c-.7-3-3-5-6-5Zm0 7.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"
+				/>
+			</svg>
+		)
+	}
+	{
+		audience === 'family' && (
+			<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+				<path
+					fill="currentColor"
+					d="M5.5 7.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm5 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM1.5 13c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5v.5h-8V13Zm7.4-3.3c1.8.3 3.1 1.7 3.1 3.3v.5h2v-.5c0-1.7-1.3-3.1-3.1-3.4-.7 0-1.4.1-2 .1Z"
+				/>
+			</svg>
+		)
+	}
+	{
+		audience === 'private' && (
+			<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+				<path
+					fill="currentColor"
+					d="M4 7V5.5a4 4 0 1 1 8 0V7h.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1H4Zm1.5 0h5V5.5a2.5 2.5 0 0 0-5 0V7Z"
+				/>
+			</svg>
+		)
+	}
+	<span>{label}</span>
+</span>
+
+<style>
+	.visibility-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		font-family: var(--font-sans);
+		font-size: var(--text-micro);
+		font-weight: var(--weight-semibold);
+		letter-spacing: var(--tracking-eyebrow);
+		text-transform: uppercase;
+		padding: var(--space-1) var(--space-2);
+		border-radius: var(--radius-pill);
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		line-height: 1;
+	}
+
+	.visibility-badge--public {
+		color: var(--color-public);
+		border-color: color-mix(in srgb, var(--color-public) 45%, var(--color-border));
+	}
+
+	.visibility-badge--family {
+		color: var(--color-text-muted);
+	}
+
+	.visibility-badge--private {
+		color: var(--color-private);
+		border-color: color-mix(in srgb, var(--color-private) 45%, var(--color-border));
+	}
+</style>

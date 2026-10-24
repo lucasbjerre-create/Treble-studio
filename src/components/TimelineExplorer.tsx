@@ -113,8 +113,8 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 			});
 			map.addSource('legs', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
-			const accent = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#b3473f';
-			const muted = getComputedStyle(document.documentElement).getPropertyValue('--color-muted').trim() || '#6b7280';
+			const accent = getComputedStyle(document.documentElement).getPropertyValue('--color-link').trim() || '#4967aa';
+			const muted = getComputedStyle(document.documentElement).getPropertyValue('--color-text-muted').trim() || '#5c5a55';
 
 			map.addLayer({
 				id: 'legs-line',

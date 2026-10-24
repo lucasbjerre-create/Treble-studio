@@ -25,6 +25,9 @@ pnpm-debug.log*
 test-results/
 playwright-report/
 
+# overnight-run review screenshots (OVERNIGHT.md) - not for git
+review/
+
 # generated binding types, regenerate with `npm run generate-types`
 worker-configuration.d.ts
 

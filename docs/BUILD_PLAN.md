@@ -14,7 +14,7 @@ The spec lists open decisions in section 14. Until Lucas decides, build with the
 |---|---|---|
 | Audience model | Family first. New entries default to `family`, public is opt in per entry | `src/config/site.ts` |
 | First visit language | Browser language if Danish, otherwise English | `src/i18n/detect.ts` |
-| Route accent color | A muted red placeholder token | `src/styles/tokens.css` |
+| Route accent color | Settled 2026-10-24 by the TREBLE brand kit: `--color-link` (CBS blue) for interactive colour, scholar seat colours for routes/trails. No longer a placeholder. | `src/styles/tokens.css` |
 | Studio on phone | Upload and cull work on a phone. Writing can assume a laptop | design of `/studio` |
 | Location delay | After leaving the place plus 48 hours | `src/config/site.ts` |
 | Clip limit | 30 seconds and 50 MB | `src/config/site.ts` |

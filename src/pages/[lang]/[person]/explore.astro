@@ -8,7 +8,8 @@ import {
 	listEntryTranslations,
 	listLegsForViewer,
 	listMediaForEntry,
-	listPlacesForViewer
+	listPlacesForViewer,
+	resolveViewerForPerson
 } from '../../../db/queries';
 import { isLocale, t, type Locale } from '../../../i18n/t';
 import { resolveEntryText } from '../../../lib/translation';
@@ -28,9 +29,11 @@ if (!person) {
 	return new Response('Not found', { status: 404 });
 }
 
-const entries = await listEntriesForViewer(db, 'public', now, { personId: person.id });
-const legs = await listLegsForViewer(db, 'public', now);
-const places = await listPlacesForViewer(db, 'public');
+const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
+
+const entries = await listEntriesForViewer(db, viewer, now, { personId: person.id });
+const legs = await listLegsForViewer(db, viewer, now);
+const places = await listPlacesForViewer(db, viewer);
 
 const translations = await listEntryTranslations(
 	db,
@@ -45,7 +48,7 @@ const cards = await Promise.all(
 			translations.get(entry.id),
 			lang
 		);
-		const media = await listMediaForEntry(db, 'public', entry.id, now);
+		const media = await listMediaForEntry(db, viewer, entry.id, now);
 		return {
 			id: entry.id,
 			slug: entry.slug,
@@ -129,23 +132,23 @@ const explorerPlaces = places.map((p) => ({ id: p.id, label: p.label, latPublic:
 	.explore {
 		max-width: 64rem;
 		margin: 0 auto;
-		padding: var(--space-6) var(--space-4) var(--space-12);
+		padding: var(--space-6) var(--grid-margin) var(--space-12);
 	}
 
 	h1 {
 		font-family: var(--font-serif);
-		font-size: var(--text-2xl);
+		font-size: var(--text-h1);
 		margin: 0 0 var(--space-2);
 	}
 
 	.non-map-alternative {
 		font-family: var(--font-sans);
-		font-size: var(--text-sm);
+		font-size: var(--text-small);
 		margin: 0 0 var(--space-6);
 	}
 
 	.non-map-alternative a {
-		color: var(--color-muted);
+		color: var(--color-text-muted);
 	}
 
 	.journal-list {
@@ -159,10 +162,10 @@ const explorerPlaces = places.map((p) => ({ id: p.id, label: p.label, latPublic:
 	.journal-card {
 		display: flex;
 		gap: var(--space-4);
-		color: var(--color-ink);
+		color: var(--color-text);
 		text-decoration: none;
 		padding: var(--space-4) 0;
-		border-top: 1px solid var(--color-border);
+		border-top: var(--border-hairline);
 	}
 
 	.journal-card img {
@@ -170,17 +173,18 @@ const explorerPlaces = places.map((p) => ({ id: p.id, label: p.label, latPublic:
 		height: 72px;
 		object-fit: cover;
 		flex-shrink: 0;
+		border-radius: var(--radius-xs);
 	}
 
 	.journal-card h2 {
 		font-family: var(--font-serif);
-		font-size: var(--text-base);
+		font-size: var(--text-body);
 		margin: 0 0 var(--space-1);
 	}
 
 	.journal-card p {
 		font-family: var(--font-sans);
-		font-size: var(--text-sm);
-		color: var(--color-muted);
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
 	}
 </style>

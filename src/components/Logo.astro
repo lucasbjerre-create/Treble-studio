@@ -1,0 +1,78 @@
+---
+// Wraps the brand kit's logo SVGs (public/brand/logos/) so the files can be
+// swapped later without touching callers - OVERNIGHT.md brand decision 7.
+// Never edit the SVG geometry here, never animate the logo (kit README,
+// "rules that are easy to break").
+//
+// variant: which lockup. Callers choose "lockup" for wide screens and "mark"
+// for phones / anything under 160px (kit README's own breakpoint for this);
+// BaseLayout renders both and lets CSS pick per viewport, matching
+// OVERNIGHT.md's "horizontal lockup in the nav on wide screens, the mark
+// alone on phones".
+//
+// There is no full-colour variant for dark backgrounds (the navy bar
+// disappears - kit README, open questions), so this always swaps to the
+// "paper" variant on dark rather than trying to keep full colour.
+interface Props {
+	variant?: 'lockup' | 'mark' | 'descriptor';
+	alt: string;
+	class?: string;
+	/** CSS length for the logo's rendered height. Passed as an inline custom
+	 * property rather than relying on a caller's own scoped stylesheet to
+	 * size this component's class prop - Astro's style scoping only attaches
+	 * a component's own scope attribute to the elements it renders itself,
+	 * so a caller's `<style>` block can never reach inside here by class name alone. */
+	height?: string;
+}
+
+const { variant = 'lockup', alt, class: className, height = '1.5rem' } = Astro.props;
+
+const sources: Record<NonNullable<Props['variant']>, { light: string; dark: string }> = {
+	lockup: { light: '/brand/logos/treble_lockup-h_fullcolour_rgb.svg', dark: '/brand/logos/treble_lockup-h_paper_rgb.svg' },
+	mark: { light: '/brand/logos/treble_mark_fullcolour_rgb.svg', dark: '/brand/logos/treble_mark_paper_rgb.svg' },
+	descriptor: {
+		light: '/brand/logos/treble_lockup-descriptor_navy_rgb.svg',
+		dark: '/brand/logos/treble_lockup-descriptor_paper_rgb.svg'
+	}
+};
+
+const { light, dark } = sources[variant];
+---
+
+<span class:list={['logo', `logo--${variant}`, className]} style={`--logo-height: ${height}`}>
+	<img class="logo-img logo-img--light" src={light} alt={alt} />
+	<img class="logo-img logo-img--dark" src={dark} alt="" aria-hidden="true" />
+</span>
+
+<style>
+	.logo {
+		display: inline-flex;
+		align-items: center;
+		height: var(--logo-height);
+	}
+
+	.logo-img {
+		display: block;
+		height: 100%;
+		width: auto;
+	}
+
+	.logo-img--dark {
+		display: none;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		:root:not([data-theme='light']) .logo-img--light {
+			display: none;
+		}
+		:root:not([data-theme='light']) .logo-img--dark {
+			display: block;
+		}
+	}
+	:root[data-theme='dark'] .logo-img--light {
+		display: none;
+	}
+	:root[data-theme='dark'] .logo-img--dark {
+		display: block;
+	}
+</style>

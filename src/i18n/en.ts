@@ -38,6 +38,13 @@ export interface Dictionary {
 		da: string;
 		en: string;
 	};
+	// Database values stay public/family/private (OVERNIGHT.md brand decision
+	// 6) - these are UI labels only, shown with an icon, never colour alone.
+	visibility: {
+		public: string;
+		family: string;
+		private: string;
+	};
 }
 
 export const en: Dictionary = {
@@ -79,5 +86,10 @@ export const en: Dictionary = {
 	languageToggle: {
 		da: 'Dansk',
 		en: 'English'
+	},
+	visibility: {
+		public: 'Public',
+		family: 'Followers only',
+		private: 'Only me'
 	}
 };

@@ -39,5 +39,10 @@ export const da: Dictionary = {
 	languageToggle: {
 		da: 'Dansk',
 		en: 'English'
+	},
+	visibility: {
+		public: 'Offentlig',
+		family: 'Kun følgere',
+		private: 'Kun mig'
 	}
 };

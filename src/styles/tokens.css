@@ -1,77 +1,519 @@
-/* Self-hosted fonts. Only the weights actually used are imported. */
-@import '@fontsource/source-serif-4/400.css';
-@import '@fontsource/source-serif-4/600.css';
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/500.css';
-@import '@fontsource/inter/600.css';
+/* TREBLE design tokens.
+   Source: docs/brand/tokens.css (the brand kit), adapted for this project:
+   - Self-hosted via the fontsource packages below instead of the kit's Google Fonts @import,
+     so a visitor's browser never calls Google (OVERNIGHT.md brand decision 2).
+   - The box-sizing/margin reset below is added because this project has no Tailwind preflight.
+   Light is the default. Dark follows the system unless <html data-theme="light|dark"> is set.
+   Raw palette values never change between modes. Use the role tokens in components. */
+
+@import '@fontsource/schibsted-grotesk/400.css';
+@import '@fontsource/schibsted-grotesk/500.css';
+@import '@fontsource/schibsted-grotesk/600.css';
+@import '@fontsource-variable/source-serif-4/opsz.css';
+@import '@fontsource-variable/source-serif-4/opsz-italic.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
 
 :root {
-	/* Palette: warm off-white, near-black text, muted grey-blue, one route accent.
-	   Accent is a placeholder until spec section 14.4 (route accent color) is settled. */
-	--color-paper: #faf6ef;
-	--color-ink: #1c1a17;
-	--color-muted: #6b7280;
-	--color-accent: #b3473f; /* placeholder: muted red */
+	/* Institutional blues. Ink only, never large fills. Order is CBS, UNC, SMU, as in the mark. */
+	--treble-cbs: #4967aa; /* CBS Blue, Pantone 661 U / 7455 C */
+	--treble-unc: #4b9cd3; /* Carolina Blue, Pantone 542 (web value) */
+	--treble-smu: #141c52; /* SMU Blue, Pantone 2766 C */
+	--treble-smu-gold: #8a704c; /* SMU gold, Pantone 873 C, accent only */
 
-	--color-border: #e4ddd0;
-	--color-surface: #ffffff;
+	/* Adjacent tones. These carry large areas. */
+	--adj-chambray: #a9c0d2;
+	--adj-steel: #c3d0d8;
+	--adj-periwinkle: #7c87a8;
+	--adj-slate: #3e4763;
+	--adj-navy: #1c2340;
+
+	/* Neutrals, from the build file */
+	--neutral-optic: #f4f2ed;
+	--neutral-bone: #e8e2d6;
+	--neutral-oat: #d5cbb8;
+	--neutral-sand: #cbbba0;
+	--neutral-cement: #a9a69f;
+	--neutral-mid: #6e6e6b;
+	--neutral-charcoal: #3d3b38;
+	--neutral-offblack: #1e1b18;
+
+	/* Role tokens, light */
+	--color-bg: #f4f2ed;
+	--color-surface: #fbfaf7;
+	--color-surface-sunken: #e8e2d6;
+	--color-surface-inverse: #141c52;
+	--color-overlay: rgb(20 28 82 / 0.42);
+	--color-text: #1e1b18;
+	--color-text-muted: #5c5a55;
+	--color-text-subtle: #6e6e6b;
+	--color-text-inverse: #f4f2ed;
+	--color-heading: #141c52;
+	--color-link: #4967aa;
+	--color-link-hover: #141c52;
+	--color-border: #d5cbb8;
+	--color-border-strong: #8f8b83;
+	--color-focus: #4967aa;
+	--color-primary: #141c52;
+	--color-primary-hover: #1c2340;
+	--color-on-primary: #f4f2ed;
+	--color-accent-area: #a9c0d2; /* chambray band, hero strips, selected rows */
+	--color-success: #2e6b4a;
+	--color-success-bg: #e3ede6;
+	--color-warning: #8a5a0b;
+	--color-warning-bg: #f3e9d3;
+	--color-error: #a6362b;
+	--color-error-bg: #f5e1dd;
+	--color-info: #4967aa;
+	--color-public: #2e6b4a;
+	--color-private: #3e4763;
+
+	/* Map, light */
+	--map-land: #edeae3;
+	--map-water: #c9d5dc;
+	--map-park: #e1e3d6;
+	--map-building: #e4e0d7;
+	--map-road: #ffffff;
+	--map-road-major: #fbfaf7;
+	--map-boundary: #c4bbac;
+	--map-label: #6e6e6b;
+	--map-label-halo: #edeae3;
+	--map-trail-casing: #f4f2ed;
+	--map-campus: #141c52;
+	--map-campus-glyph: #f4f2ed;
+	--map-dimmed: #a9a69f;
+
+	/* Scholar colours, light. Eight hues, two line patterns, sixteen seats.
+	   Every hue holds 3:1 against --map-land. Pairs stay apart under protan, deutan and tritan simulation. */
+	--scholar-fjord: #003072;
+	--scholar-sky: #2d8bd9;
+	--scholar-ochre: #a46907;
+	--scholar-brick: #9b2902;
+	--scholar-pine: #016051;
+	--scholar-plum: #7c51a1;
+	--scholar-rose: #dd5a7a;
+	--scholar-ink: #2a2316;
+	--scholar-on: #ffffff; /* initials on most scholar hues */
+	--scholar-on-alt: #1e1b18; /* initials on sky and rose, which are too light for white */
 
 	/* Type */
-	--font-serif: 'Source Serif 4', ui-serif, Georgia, serif;
-	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--font-sans: 'Schibsted Grotesk', 'Helvetica Neue', Arial, system-ui, sans-serif;
+	--font-serif: 'Source Serif 4 Variable', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+	--font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-	--text-xs: 0.75rem;
-	--text-sm: 0.875rem;
-	--text-base: 1rem;
-	--text-lg: 1.25rem;
-	--text-xl: 1.75rem;
-	--text-2xl: 2.5rem;
+	--text-display: clamp(2.5rem, 1.7rem + 3.6vw, 4.5rem);
+	--text-h1: clamp(2rem, 1.55rem + 2vw, 3rem);
+	--text-h2: clamp(1.5rem, 1.3rem + 0.9vw, 2rem);
+	--text-h3: 1.25rem;
+	--text-h4: 1rem;
+	--text-body-lg: 1.1875rem;
+	--text-body: 1.0625rem;
+	--text-ui: 0.9375rem;
+	--text-small: 0.8125rem;
+	--text-micro: 0.75rem;
 
-	/* Spacing scale, 4px base */
+	--leading-display: 1.02;
+	--leading-h1: 1.08;
+	--leading-h2: 1.15;
+	--leading-h3: 1.25;
+	--leading-h4: 1.35;
+	--leading-body: 1.6;
+	--leading-ui: 1.45;
+	--leading-small: 1.4;
+
+	--tracking-display: -0.03em;
+	--tracking-h1: -0.025em;
+	--tracking-h2: -0.02em;
+	--tracking-h3: -0.01em;
+	--tracking-body: 0;
+	--tracking-mono: 0.02em;
+	--tracking-eyebrow: 0.14em; /* echoes the wide tracking of the wordmark */
+
+	--weight-regular: 400;
+	--weight-medium: 500;
+	--weight-semibold: 600;
+
+	--measure: 66ch;
+
+	/* Spacing, 4px base */
+	--space-0: 0;
+	--space-0-5: 0.125rem;
 	--space-1: 0.25rem;
 	--space-2: 0.5rem;
 	--space-3: 0.75rem;
 	--space-4: 1rem;
+	--space-5: 1.25rem;
 	--space-6: 1.5rem;
 	--space-8: 2rem;
+	--space-10: 2.5rem;
 	--space-12: 3rem;
+	--space-16: 4rem;
+	--space-20: 5rem;
+	--space-24: 6rem;
+	--space-32: 8rem;
+
+	/* Layout */
+	--grid-columns: 4;
+	--grid-gutter: 1rem;
+	--grid-margin: 1rem;
+	--content-max: 75rem;
+	--nav-height: 3.5rem;
+	--touch-min: 2.75rem;
+
+	/* Radii. Small on purpose. */
+	--radius-none: 0;
+	--radius-xs: 2px;
+	--radius-sm: 4px;
+	--radius-md: 8px;
+	--radius-lg: 12px;
+	--radius-pill: 999px;
+
+	/* Borders */
+	--border-hairline: 1px solid var(--color-border);
+	--border-strong: 1px solid var(--color-border-strong);
+
+	/* Shadows. Warm, low, rare. */
+	--shadow-sm: 0 1px 2px rgb(30 27 24 / 0.06), 0 1px 1px rgb(30 27 24 / 0.04);
+	--shadow-md: 0 4px 12px rgb(30 27 24 / 0.08), 0 1px 3px rgb(30 27 24 / 0.06);
+	--shadow-lg: 0 16px 40px rgb(30 27 24 / 0.12), 0 4px 10px rgb(30 27 24 / 0.06);
+	--shadow-focus: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-focus);
 
 	/* Motion */
-	--motion-fast: 150ms;
-	--motion-base: 250ms;
-	--motion-camera: 1000ms;
+	--duration-instant: 80ms;
+	--duration-fast: 140ms;
+	--duration-base: 220ms;
+	--duration-slow: 360ms;
+	--duration-map: 1200ms;
+	--duration-trail: 900ms;
+	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
+	--ease-enter: cubic-bezier(0, 0, 0.2, 1);
+	--ease-exit: cubic-bezier(0.4, 0, 1, 1);
+	--ease-map: cubic-bezier(0.65, 0, 0.35, 1);
 
-	/* Minimum tap target per spec section 6 */
-	--tap-target-min: 44px;
+	/* Layers */
+	--z-map: 0;
+	--z-map-ui: 10;
+	--z-sheet: 20;
+	--z-nav: 30;
+	--z-popover: 40;
+	--z-modal: 50;
+	--z-toast: 60;
+
+	color-scheme: light;
 }
 
-@media (prefers-reduced-motion: reduce) {
+/* Dark role tokens. Raw palette above is untouched. */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--color-bg: #10142a;
+		--color-surface: #181e3b;
+		--color-surface-sunken: #0b0e1f;
+		--color-surface-inverse: #f4f2ed;
+		--color-overlay: rgb(5 7 18 / 0.6);
+		--color-text: #f4f2ed;
+		--color-text-muted: #b9b5ac;
+		--color-text-subtle: #a9a69f;
+		--color-text-inverse: #141c52;
+		--color-heading: #f4f2ed;
+		--color-link: #4b9cd3;
+		--color-link-hover: #a9c0d2;
+		--color-border: #2c3459;
+		--color-border-strong: #6b76a8;
+		--color-focus: #4b9cd3;
+		--color-primary: #e8e2d6;
+		--color-primary-hover: #f4f2ed;
+		--color-on-primary: #141c52;
+		--color-accent-area: #1c2340;
+		--color-success: #7cc4a0;
+		--color-success-bg: #16302a;
+		--color-warning: #e2b45c;
+		--color-warning-bg: #352a14;
+		--color-error: #f08a7e;
+		--color-error-bg: #3a1d1e;
+		--color-info: #4b9cd3;
+		--color-public: #7cc4a0;
+		--color-private: #a9c0d2;
+		--map-land: #151a31;
+		--map-water: #0d1124;
+		--map-park: #182235;
+		--map-building: #1b2140;
+		--map-road: #232a4a;
+		--map-road-major: #2c3459;
+		--map-boundary: #3a4268;
+		--map-label: #a9a69f;
+		--map-label-halo: #151a31;
+		--map-trail-casing: #10142a;
+		--map-campus: #e8e2d6;
+		--map-campus-glyph: #141c52;
+		--map-dimmed: #4a5070;
+		--scholar-fjord: #a7c3f6;
+		--scholar-sky: #18a8fc;
+		--scholar-ochre: #efc983;
+		--scholar-brick: #f05e35;
+		--scholar-pine: #4d987f;
+		--scholar-plum: #8d78bf;
+		--scholar-rose: #fe99b1;
+		--scholar-ink: #f3ecde;
+		--scholar-on: #10142a;
+		--scholar-on-alt: #10142a;
+		--shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+		--shadow-md: 0 4px 12px rgb(0 0 0 / 0.35);
+		--shadow-lg: 0 16px 40px rgb(0 0 0 / 0.45);
+		color-scheme: dark;
+	}
+}
+:root[data-theme='dark'] {
+	--color-bg: #10142a;
+	--color-surface: #181e3b;
+	--color-surface-sunken: #0b0e1f;
+	--color-surface-inverse: #f4f2ed;
+	--color-overlay: rgb(5 7 18 / 0.6);
+	--color-text: #f4f2ed;
+	--color-text-muted: #b9b5ac;
+	--color-text-subtle: #a9a69f;
+	--color-text-inverse: #141c52;
+	--color-heading: #f4f2ed;
+	--color-link: #4b9cd3;
+	--color-link-hover: #a9c0d2;
+	--color-border: #2c3459;
+	--color-border-strong: #6b76a8;
+	--color-focus: #4b9cd3;
+	--color-primary: #e8e2d6;
+	--color-primary-hover: #f4f2ed;
+	--color-on-primary: #141c52;
+	--color-accent-area: #1c2340;
+	--color-success: #7cc4a0;
+	--color-success-bg: #16302a;
+	--color-warning: #e2b45c;
+	--color-warning-bg: #352a14;
+	--color-error: #f08a7e;
+	--color-error-bg: #3a1d1e;
+	--color-info: #4b9cd3;
+	--color-public: #7cc4a0;
+	--color-private: #a9c0d2;
+	--map-land: #151a31;
+	--map-water: #0d1124;
+	--map-park: #182235;
+	--map-building: #1b2140;
+	--map-road: #232a4a;
+	--map-road-major: #2c3459;
+	--map-boundary: #3a4268;
+	--map-label: #a9a69f;
+	--map-label-halo: #151a31;
+	--map-trail-casing: #10142a;
+	--map-campus: #e8e2d6;
+	--map-campus-glyph: #141c52;
+	--map-dimmed: #4a5070;
+	--scholar-fjord: #a7c3f6;
+	--scholar-sky: #18a8fc;
+	--scholar-ochre: #efc983;
+	--scholar-brick: #f05e35;
+	--scholar-pine: #4d987f;
+	--scholar-plum: #8d78bf;
+	--scholar-rose: #fe99b1;
+	--scholar-ink: #f3ecde;
+	--scholar-on: #10142a;
+	--scholar-on-alt: #10142a;
+	--shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+	--shadow-md: 0 4px 12px rgb(0 0 0 / 0.35);
+	--shadow-lg: 0 16px 40px rgb(0 0 0 / 0.45);
+	color-scheme: dark;
+}
+
+/* Grid steps, mobile first */
+@media (min-width: 768px) {
 	:root {
-		--motion-fast: 0ms;
-		--motion-base: 0ms;
-		--motion-camera: 0ms;
+		--grid-columns: 8;
+		--grid-gutter: 1.5rem;
+		--grid-margin: 2rem;
+		--nav-height: 4rem;
+	}
+}
+@media (min-width: 1024px) {
+	:root {
+		--grid-columns: 12;
+		--grid-gutter: 1.5rem;
+		--grid-margin: 3rem;
 	}
 }
 
-/* Minimal reset: browser UA defaults (figure's 40px margin especially) cause
-   silent overflow on narrow viewports otherwise. */
+/* Motion off when asked */
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--duration-fast: 0ms;
+		--duration-base: 0ms;
+		--duration-slow: 0ms;
+		--duration-map: 0ms;
+		--duration-trail: 0ms;
+	}
+}
+
+/* Reset: browser UA defaults (figure's 40px margin especially) cause silent
+   overflow on narrow viewports otherwise. The kit assumes Tailwind preflight
+   for this; this project is plain CSS, so it is added here instead. */
 *,
 *::before,
 *::after {
 	box-sizing: border-box;
 }
-
 body,
 h1,
 h2,
 h3,
+h4,
 p,
-figure {
+figure,
+dl,
+dd {
 	margin: 0;
 }
 
+/* Base, small and opinionated */
+html {
+	font-family: var(--font-sans);
+	font-size: 100%;
+	color: var(--color-text);
+	background: var(--color-bg);
+	-webkit-text-size-adjust: 100%;
+}
 body {
-	background: var(--color-paper);
-	color: var(--color-ink);
+	margin: 0;
+	font-size: var(--text-ui);
+	line-height: var(--leading-ui);
+	font-feature-settings: 'ss01' 0;
+	text-rendering: optimizeLegibility;
+}
+h1,
+h2,
+h3,
+h4 {
+	color: var(--color-heading);
+	font-weight: var(--weight-medium);
+	margin: 0;
+	text-wrap: balance;
+}
+h1 {
+	font-size: var(--text-h1);
+	line-height: var(--leading-h1);
+	letter-spacing: var(--tracking-h1);
+}
+h2 {
+	font-size: var(--text-h2);
+	line-height: var(--leading-h2);
+	letter-spacing: var(--tracking-h2);
+}
+h3 {
+	font-size: var(--text-h3);
+	line-height: var(--leading-h3);
+	letter-spacing: var(--tracking-h3);
+	font-weight: var(--weight-semibold);
+}
+h4 {
+	font-size: var(--text-h4);
+	line-height: var(--leading-h4);
+	font-weight: var(--weight-semibold);
+}
+a {
+	color: var(--color-link);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.18em;
+}
+a:hover {
+	color: var(--color-link-hover);
+}
+:focus-visible {
+	outline: none;
+	box-shadow: var(--shadow-focus);
+	border-radius: var(--radius-xs);
+}
+.t-prose {
 	font-family: var(--font-serif);
+	font-size: var(--text-body);
+	line-height: var(--leading-body);
+	max-width: var(--measure);
+	font-optical-sizing: auto;
+	text-wrap: pretty;
+}
+.t-eyebrow {
+	font-family: var(--font-sans);
+	font-size: var(--text-micro);
+	font-weight: var(--weight-semibold);
+	letter-spacing: var(--tracking-eyebrow);
+	text-transform: uppercase;
+	color: var(--color-text-muted);
+}
+.t-data {
+	font-family: var(--font-mono);
+	font-size: var(--text-small);
+	letter-spacing: var(--tracking-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Scholar seat helpers. Seats 1 to 8 solid, 9 to 16 dashed.
+   Assigned alphabetically by surname at launch and never reshuffled (kit README). */
+[data-seat='1'],
+[data-seat='9'] {
+	--scholar: var(--scholar-fjord);
+}
+[data-seat='2'],
+[data-seat='10'] {
+	--scholar: var(--scholar-ochre);
+}
+[data-seat='3'],
+[data-seat='11'] {
+	--scholar: var(--scholar-pine);
+}
+[data-seat='4'],
+[data-seat='12'] {
+	--scholar: var(--scholar-rose);
+}
+[data-seat='5'],
+[data-seat='13'] {
+	--scholar: var(--scholar-sky);
+}
+[data-seat='6'],
+[data-seat='14'] {
+	--scholar: var(--scholar-brick);
+}
+[data-seat='7'],
+[data-seat='15'] {
+	--scholar: var(--scholar-plum);
+}
+[data-seat='8'],
+[data-seat='16'] {
+	--scholar: var(--scholar-ink);
+}
+[data-seat] {
+	--scholar-dash: none;
+	--scholar-text: var(--scholar-on);
+}
+[data-seat='4'],
+[data-seat='12'],
+[data-seat='5'],
+[data-seat='13'] {
+	--scholar-text: var(--scholar-on-alt);
+}
+[data-seat='9'],
+[data-seat='10'],
+[data-seat='11'],
+[data-seat='12'],
+[data-seat='13'],
+[data-seat='14'],
+[data-seat='15'],
+[data-seat='16'] {
+	--scholar-dash: 6 4;
+}
+
+/* Photo treatment for uploads. Light, consistent, removable. */
+.photo {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: var(--radius-xs);
+	background: var(--color-surface-sunken);
+	filter: saturate(0.94) contrast(0.98);
+}
+.photo--full {
+	filter: none;
 }

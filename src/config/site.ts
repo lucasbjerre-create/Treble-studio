@@ -13,3 +13,9 @@ export const LOCATION_DELAY_HOURS = 48;
 
 /** Must match wrangler.jsonc's r2_buckets bucket_name - the R2 binding itself doesn't expose this for S3-API URL construction. */
 export const R2_BUCKET_NAME = 'exchange-site-media';
+
+/** Settled spec section 14: treble.cordoza.dk, a subdomain of Lucas's own domain. Used for absolute URLs (og:image) only - nothing here deploys or touches DNS. */
+export const SITE_URL = 'https://treble.cordoza.dk';
+
+/** How long a viewer login code stays valid (milestone 5). */
+export const LOGIN_CODE_EXPIRY_MINUTES = 10;
