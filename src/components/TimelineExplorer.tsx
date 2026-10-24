@@ -236,7 +236,10 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 
 		if (visibleCoords.length > 0) {
 			const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-			const activeCoords = placeCoords(places, state.activeEntry?.placeId ?? null);
+			// Single-person for now (explore.astro passes one person's entries) -
+			// activeEntries[0] is that person's active entry. The library itself
+			// is ready for several; this component isn't rendering group UI yet.
+			const activeCoords = placeCoords(places, state.activeEntries[0]?.placeId ?? null);
 			// A hop that opens a new chapter (its destination's chapter differs
 			// from its own - i.e. this leg is literally what starts the chapter)
 			// gets the longer cinematic treatment; spec names these as the
@@ -323,7 +326,7 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 		}
 	}
 
-	const activeIndex = sortedEntries.findIndex((e) => e.id === state.activeEntry?.id);
+	const activeIndex = sortedEntries.findIndex((e) => e.id === state.activeEntries[0]?.id);
 
 	return (
 		<div className="timeline-explorer">

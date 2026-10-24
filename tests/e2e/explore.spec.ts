@@ -18,7 +18,7 @@ async function setSlider(slider: Locator, value: string) {
 }
 
 test('the slider and a marker click stay in sync via the URL', async ({ page }) => {
-	await page.goto('/en/explore');
+	await page.goto('/en/lucas/explore');
 
 	await page.waitForFunction(() => {
 		const map = (window as unknown as { __explorerMap?: { isStyleLoaded(): boolean } }).__explorerMap;

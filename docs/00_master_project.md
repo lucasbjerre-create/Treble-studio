@@ -337,8 +337,10 @@ person_id, trip_participants, group_map_opt_in and quotas exist in the schema. N
 A thin TREBLE overview. One card per scholar who opts in, broad location, link to whatever they already use. Updates collected through a short form and published in one weekly batch.
 
 **Stage 2, after several months of my own real use**
-Pilot with two scholars in the same deployment. Routes like /lucas, /anna and /treble. Same upload flow, separate media folders, own content only. Shared trips as one canonical entry with each person's contribution attributed. People switcher, simplified routes at world scale, same date kept when switching. Crossings only when people tag them, never guessed from coordinates. Group map opt in per entry.
+Pilot with two scholars in the same deployment. Routes like /lucas, /anna and /treble. Same upload flow, separate media folders, own content only. Shared trips as one canonical entry with each person's contribution attributed. People switcher, simplified routes at world scale, same date kept when switching. Crossings suggested automatically from matching city and overlapping dates, shown as confirmed only once both people say yes - nothing about a crossing is asserted without both people's say-so, only the suggestion itself is computed rather than purely manual. Group map opt in per entry.
 Stop rule. If the pilot costs more than about 15 minutes of my admin time per contributor per week, stop growing and offer a template instead.
+
+docs/BUILD_PLAN.md's milestones 5 ("Viewers and followers") and 6 ("Second trebler") cover this stage - viewers/followers, contributor onboarding, quotas, the trebler picker and crossings.
 
 **Stage 3, only if the pilot works**
 Open to more scholars. Compare mode capped at four detailed routes, using name plus color plus line pattern. Inactive people show their last update and "updates paused". No leaderboards of any kind.
@@ -488,6 +490,9 @@ Only if at least two students actually want it. Separate repo, fictional sample 
 14. How candid to be about loneliness, money, grades and relationships, and the rule for party and dating content.
 15. Planned future destinations shown faintly, or only places already visited.
 16. Should links sent to grandparents open in simple view by default.
+
+**Needed before milestone 5**
+- Whether "family" becomes "followers of this person" if the site goes group - a per-person follow relationship instead of one shared family list. Decide before milestone 5 (Viewers and followers).
 
 **Can wait**
 17. Grades ever visible.

@@ -13,7 +13,7 @@ import { test, expect } from '@playwright/test';
 test.use({ viewport: { width: 800, height: 220 } });
 
 test('scrolling the journal moves state and the URL the same way as the slider/marker', async ({ page }) => {
-	await page.goto('/en/explore');
+	await page.goto('/en/lucas/explore');
 	await page.waitForFunction(() => {
 		const map = (window as unknown as { __explorerMap?: { isStyleLoaded(): boolean } }).__explorerMap;
 		return Boolean(map?.isStyleLoaded());

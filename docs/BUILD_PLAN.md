@@ -143,23 +143,46 @@ Start milestone 4 from docs/BUILD_PLAN.md. Read spec sections 8 and 9. Plan the 
 
 ---
 
+## Decision point: solo or group
+
+Before continuing past milestone 4, decide whether this stays Lucas's own site or becomes a group site for TREBLE scholars (see spec section 10). Milestone 3's `src/lib/timeline.ts` and the explore view were already built multi-person-ready for this, without building any group feature itself.
+
+- **If group**: build milestones 5 and 6 below next. Milestone 7 (Family layer and privacy hardening) may end up partly superseded rather than built exactly as originally scoped, since milestone 5 is designed to replace the Access family list.
+- **If solo**: skip straight to milestone 7 and the solo path continues exactly as originally planned.
+
+### Milestone 5. Viewers and followers
+About a day.
+- The site's own email-code login (a one-time code or magic link), replacing Cloudflare Access for family-tier viewing. `/studio` keeps using Access.
+- A `follows` table: follower identity (email), the person they follow, status, created_at.
+- Family-tier entries become follower-only per person - a follower of Anna isn't automatically a follower of Lucas. This is the "family" to "followers of this person" shift flagged in spec section 14.
+- If this replaces the Access family list, retire the allowlist-based approach from the original milestone 5 (now 7) rather than running both.
+
+### Milestone 6. Second trebler
+About a day.
+- Contributor onboarding: invite a second scholar, their own `/studio` access scoped to only their own content.
+- Storage quota per person (R2 usage tracked and capped - spec section 8's budget note: 10 GB split across 15 people is under 700 MB each).
+- A "choose your trebler" home screen that only appears once two or more people have published; before that, the single-person homepage is unchanged.
+- Crossings suggested automatically when two people's entries share the same city and overlapping dates, shown as confirmed only once both people say yes - nothing about a crossing is asserted without both people's say-so, only the suggestion itself is computed rather than purely manual (updates spec section 10's Stage 2 description).
+
+---
+
 ## Version 1. Sunday gets fast
 
-### Milestone 5. Family layer and privacy hardening
-About a day.
+### Milestone 7. Family layer and privacy hardening
+About a day. If the group path (milestone 5) was taken, check what's left to build here - some of this may already be done differently.
 - Family layer behind its own Access policy with an explicit email allowlist. Check current docs on whether to use a path prefix or a separate hostname.
 - Family media served through a Worker route that checks the viewer.
 - Hidden first and last part of detailed routes near home, no future legs in public.
 - Privacy test suite extended to RSS, sitemap and link preview tags.
 
-### Milestone 6. Inbox and Shortcuts
+### Milestone 8. Inbox and Shortcuts
 About half a day.
 - `POST /api/capture` authenticated with a Cloudflare Access service token, accepting text, time and optional coarse location.
 - Media variant of the same endpoint for the share sheet.
 - Inbox list in `/studio`.
 - `shortcuts/README.md` with click by click steps for Lucas to build "Save moment" and "Send to travel inbox", including the offline fallback.
 
-### Milestone 7. Smart ingest
+### Milestone 9. Smart ingest
 About two days.
 - Batch upload desk with per file progress, retry and state kept in IndexedDB so a closed tab can resume.
 - Import report, then day and moment grouping as a pure, tested function (two hour gap or a real change of place).
@@ -167,19 +190,19 @@ About two days.
 - Route cards. A pure, tested function proposes legs whenever the city changes and guesses the mode from distance.
 - Story assembly that turns chosen moments into one or more entries.
 
-### Milestone 8. Bilingual workflow
+### Milestone 10. Bilingual workflow
 About half a day.
 - `entry_texts` and `media_texts` editing side by side in the studio.
 - A translation draft button. Ask Lucas before wiring any paid AI API, and keep the key as a Wrangler secret.
 - Unapproved translations fall back to the original with a small note.
 
-### Milestone 9. Digest and RSS
+### Milestone 11. Digest and RSS
 About half a day.
 - RSS per language, public entries only.
 - A digest builder in the studio that produces the week's email in both languages for Lucas to paste into MailerLite. No email API integration yet.
 - MailerLite signup form embedded with a language choice.
 
-### Milestone 10. Backfill August to October
+### Milestone 12. Backfill August to October
 One session, mostly Lucas.
 - Make sure batch import handles a few hundred files and a date range filter.
 - Run the leg proposals across the whole backfill at once.
