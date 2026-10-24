@@ -273,6 +273,19 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 
 	return (
 		<div className="entry-editor">
+			<PhotoUpload
+				entryId={entryId}
+				ensureEntryId={saveDraft}
+				media={media}
+				onUploaded={(item, gps) => {
+					setMedia((prev) => [...prev, item]);
+					if (!occurredAtTouched && item.capturedAt) {
+						setOccurredAtLocal(isoToLocalInputValue(item.capturedAt));
+					}
+					void detectPlaceFromGps(gps);
+				}}
+			/>
+
 			<div className="field-grid">
 				<label>
 					Title
@@ -464,19 +477,6 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 					{status}
 				</span>
 			</div>
-
-			<PhotoUpload
-				entryId={entryId}
-				ensureEntryId={saveDraft}
-				media={media}
-				onUploaded={(item, gps) => {
-					setMedia((prev) => [...prev, item]);
-					if (!occurredAtTouched && item.capturedAt) {
-						setOccurredAtLocal(isoToLocalInputValue(item.capturedAt));
-					}
-					void detectPlaceFromGps(gps);
-				}}
-			/>
 
 			<div className="publish-row">
 				<button type="button" onClick={() => setReviewOpen(true)} disabled={!entryId && !title}>
