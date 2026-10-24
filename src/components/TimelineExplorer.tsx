@@ -6,7 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useEffect, useRef, useState } from 'react';
 import './TimelineExplorer.css';
-import { CAMERA_CINEMATIC_MS, CAMERA_MOVE_MS, MAP_DEFAULT_ZOOM, MAP_STYLE_URL } from '../config/map';
+import { CAMERA_CINEMATIC_MS, CAMERA_MOVE_MS, MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_STYLE_URL } from '../config/map';
 import {
 	adjacentChapterEntryDate,
 	adjacentEntryDate,
@@ -94,7 +94,7 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 		const map = new MapLibreMap({
 			container: containerRef.current,
 			style: MAP_STYLE_URL,
-			center: placeCoords(places, sortedEntries.at(-1)?.placeId ?? null) ?? [0, 0],
+			center: placeCoords(places, sortedEntries.at(-1)?.placeId ?? null) ?? MAP_DEFAULT_CENTER,
 			zoom: MAP_DEFAULT_ZOOM
 		});
 		mapRef.current = map;
