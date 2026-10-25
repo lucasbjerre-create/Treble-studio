@@ -14,7 +14,9 @@ export const da: Dictionary = {
 	},
 	explore: {
 		title: 'Udforsk ruten',
-		nonMapAlternative: 'Foretrækker du intet kort? Læs journalen i stedet.'
+		nonMapAlternative: 'Foretrækker du intet kort? Læs journalen i stedet.',
+		openMap: 'Kort',
+		closeMap: 'Luk kortet'
 	},
 	entry: {
 		previous: 'Ældre',

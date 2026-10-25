@@ -4,11 +4,114 @@
 	gap: var(--space-4);
 }
 
-.map-container {
+.map-panel {
+	position: relative;
 	width: 100%;
 	height: 50vh;
 	min-height: 320px;
 	background: var(--map-land, var(--color-surface-sunken));
+}
+
+.map-container {
+	width: 100%;
+	height: 100%;
+}
+
+/* Hidden on desktop - the map is always visible there (unchanged from before). */
+.map-sheet-toggle {
+	display: none;
+}
+
+/* Phone layout: story first (spec section 6). The map collapses into a slim
+   sticky bar; tapping it opens a bottom sheet instead of the map always
+   taking the top 50vh of the screen. cooperativeGestures on the Map
+   constructor (TimelineExplorer.tsx) keeps a one-finger swipe scrolling the
+   page even while the sheet is open. */
+@media (max-width: 767px) {
+	.map-panel {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 0;
+		min-height: 0;
+		overflow: hidden;
+		z-index: var(--z-sheet);
+		box-shadow: var(--shadow-lg);
+		transition: height var(--duration-base) var(--ease-standard);
+	}
+
+	.map-panel--open {
+		height: 70vh;
+	}
+
+	.map-sheet-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+		width: 100%;
+		min-height: var(--touch-min);
+		padding: 0 var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-pill);
+		font-family: var(--font-sans);
+		font-size: var(--text-small);
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.sheet-toggle-place {
+		font-weight: var(--weight-medium);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.sheet-toggle-date {
+		color: var(--color-text-muted);
+	}
+
+	.sheet-toggle-action {
+		color: var(--color-link);
+		font-weight: var(--weight-semibold);
+		flex-shrink: 0;
+	}
+}
+
+/* Campus markers (map-theme.json markers.campus): square tile, the kit's
+   campus glyph centered on it. Plain HTML markers, not a map layer - see
+   TimelineExplorer.tsx. */
+.campus-marker {
+	width: 32px;
+	height: 32px;
+	border-radius: var(--radius-sm);
+	background: var(--map-campus, var(--color-primary));
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: var(--shadow-sm);
+	border: 2px solid var(--map-land, var(--color-bg));
+	/* Informational, not interactive - and at low zoom a campus can sit right
+	   on top of an entry marker at nearly the same coordinates. Without this,
+	   the campus tile's DOM element (stacked above the canvas, like every
+	   MapLibre HTML marker) silently swallows clicks meant for the entry
+	   marker underneath it. */
+	pointer-events: none;
+}
+
+.campus-marker-glyph {
+	display: block;
+	width: 18px;
+	height: 18px;
+	background-color: var(--map-campus-glyph, var(--color-on-primary));
+	mask-size: contain;
+	mask-repeat: no-repeat;
+	mask-position: center;
+	-webkit-mask-size: contain;
+	-webkit-mask-repeat: no-repeat;
+	-webkit-mask-position: center;
 }
 
 .slider-controls {

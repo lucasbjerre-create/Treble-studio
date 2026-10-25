@@ -13,6 +13,8 @@ export interface Dictionary {
 	explore: {
 		title: string;
 		nonMapAlternative: string;
+		openMap: string;
+		closeMap: string;
 	};
 	entry: {
 		previous: string;
@@ -61,7 +63,9 @@ export const en: Dictionary = {
 	},
 	explore: {
 		title: 'Explore the route',
-		nonMapAlternative: 'Prefer no map? Read the journal instead.'
+		nonMapAlternative: 'Prefer no map? Read the journal instead.',
+		openMap: 'Map',
+		closeMap: 'Close map'
 	},
 	entry: {
 		previous: 'Older',

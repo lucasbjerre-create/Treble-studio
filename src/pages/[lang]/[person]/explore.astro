@@ -8,8 +8,7 @@ import {
 	listEntryTranslations,
 	listLegsForViewer,
 	listMediaForEntry,
-	listPlacesForViewer,
-	resolveViewerForPerson
+	listPlacesForViewer
 } from '../../../db/queries';
 import { isLocale, t, type Locale } from '../../../i18n/t';
 import { resolveEntryText } from '../../../lib/translation';
@@ -29,11 +28,9 @@ if (!person) {
 	return new Response('Not found', { status: 404 });
 }
 
-const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
-
-const entries = await listEntriesForViewer(db, viewer, now, { personId: person.id });
-const legs = await listLegsForViewer(db, viewer, now);
-const places = await listPlacesForViewer(db, viewer);
+const entries = await listEntriesForViewer(db, 'public', now, { personId: person.id });
+const legs = await listLegsForViewer(db, 'public', now);
+const places = await listPlacesForViewer(db, 'public');
 
 const translations = await listEntryTranslations(
 	db,
@@ -48,7 +45,7 @@ const cards = await Promise.all(
 			translations.get(entry.id),
 			lang
 		);
-		const media = await listMediaForEntry(db, viewer, entry.id, now);
+		const media = await listMediaForEntry(db, 'public', entry.id, now);
 		return {
 			id: entry.id,
 			slug: entry.slug,
@@ -84,6 +81,12 @@ const explorerLegs = legs.map((l) => ({
 }));
 
 const explorerPlaces = places.map((p) => ({ id: p.id, label: p.label, latPublic: p.latPublic, lonPublic: p.lonPublic }));
+
+// Only this page's own person for now (same single-person scope as
+// explorerEntries/explorerLegs above) - keyed by id so TimelineExplorer can
+// look up any personId it encounters, ready for when more than one person's
+// entries are passed in together.
+const explorerPeople = { [person.id]: { displayName: person.displayName, seat: person.seat } };
 ---
 
 <BaseLayout
@@ -100,7 +103,13 @@ const explorerPlaces = places.map((p) => ({ id: p.id, label: p.label, latPublic:
 			entries={explorerEntries}
 			legs={explorerLegs}
 			places={explorerPlaces}
-			labels={{ previous: dict.entry.previous, next: dict.entry.next }}
+			people={explorerPeople}
+			labels={{
+				previous: dict.entry.previous,
+				next: dict.entry.next,
+				openMap: dict.explore.openMap,
+				closeMap: dict.explore.closeMap
+			}}
 		/>
 
 		<div class="journal-list">

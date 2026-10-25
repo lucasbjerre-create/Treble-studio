@@ -211,12 +211,14 @@ export async function getPlaceById(db: Database, viewer: Viewer, id: number) {
 }
 
 // Excludes email - never needed by a reader and not privacy-cleared for public display.
+// seat is public on purpose - it drives the scholar colour on public map markers/trails (map-theme.json).
 const publicPersonColumns = {
 	id: schema.people.id,
 	slug: schema.people.slug,
 	displayName: schema.people.displayName,
 	role: schema.people.role,
-	routeColor: schema.people.routeColor
+	routeColor: schema.people.routeColor,
+	seat: schema.people.seat
 } as const;
 
 export async function getPersonBySlug(db: Database, viewer: Viewer, slug: string) {

@@ -38,7 +38,13 @@ test('the slider and a marker click stay in sync via the URL', async ({ page }) 
 	// Back to the latest, so both markers are visible (fitBounds frames every revealed marker).
 	await setSlider(slider, max ?? '1');
 	await expect(page).toHaveURL(/at=2026-08-16/);
-	await page.waitForTimeout(1200); // let the camera settle
+	// Waits for the camera to actually stop, not a fixed delay: the Denmark->
+	// Chapel Hill hop gets the longer cinematic duration (CAMERA_CINEMATIC_MS,
+	// src/config/map.ts), longer than a fixed wait here used to assume.
+	await page.waitForFunction(() => {
+		const map = (window as unknown as { __explorerMap?: { isMoving(): boolean } }).__explorerMap;
+		return Boolean(map && !map.isMoving());
+	});
 
 	// Click the Copenhagen marker directly on the map canvas.
 	const point = await page.evaluate(() => {

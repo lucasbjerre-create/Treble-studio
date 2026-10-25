@@ -1,5 +1,5 @@
 import { greatCircle } from '@turf/great-circle';
-import { Map as MapLibreMap, setWorkerUrl, type GeoJSONSource } from 'maplibre-gl';
+import { Map as MapLibreMap, Marker, setWorkerUrl, type GeoJSONSource } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 // The `?worker&url` suffix matters: plain `?url` omits a sibling chunk the
 // worker needs, which works in dev but 404s in a production build.
@@ -7,6 +7,8 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useEffect, useRef, useState } from 'react';
 import './TimelineExplorer.css';
 import { CAMERA_CINEMATIC_MS, CAMERA_MOVE_MS, MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_STYLE_URL } from '../config/map';
+import { CAMPUSES } from '../config/campuses';
+import { initialsFor } from '../lib/initials';
 import {
 	adjacentChapterEntryDate,
 	adjacentEntryDate,
@@ -32,11 +34,18 @@ export interface ExplorerPlace {
 	lonPublic: number | null;
 }
 
+/** Keyed by personId. Drives the scholar-seat colour/dash/initials on markers and trails (map-theme.json). */
+export interface ExplorerPerson {
+	displayName: string;
+	seat: number | null;
+}
+
 interface Props {
 	entries: ExplorerEntry[];
 	legs: ExplorerLeg[];
 	places: ExplorerPlace[];
-	labels: { previous: string; next: string };
+	people: Record<number, ExplorerPerson>;
+	labels: { previous: string; next: string; openMap: string; closeMap: string };
 }
 
 function placeCoords(places: ExplorerPlace[], placeId: number | null): [number, number] | undefined {
@@ -55,9 +64,111 @@ function writeDateToUrl(date: string) {
 	window.history.replaceState(null, '', url);
 }
 
-export default function TimelineExplorer({ entries, legs, places, labels }: Props) {
+function cssVar(name: string, fallback: string): string {
+	const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+	return value || fallback;
+}
+
+interface SeatStyle {
+	color: string;
+	textColor: string;
+	dashed: boolean;
+}
+
+/**
+ * Reads the already-themed `--scholar*` custom properties tokens.css sets
+ * under `[data-seat="N"]`, rather than re-encoding the seat->hue table from
+ * map-theme.json a second time here. Picks up light/dark automatically,
+ * same as the `cssVar` accent/muted reads below.
+ */
+function readSeatStyle(seat: number, cache: Map<number, SeatStyle>): SeatStyle {
+	const cached = cache.get(seat);
+	if (cached) return cached;
+
+	const probe = document.createElement('span');
+	probe.setAttribute('data-seat', String(seat));
+	probe.style.display = 'none';
+	document.body.appendChild(probe);
+	const computed = getComputedStyle(probe);
+	const result: SeatStyle = {
+		color: computed.getPropertyValue('--scholar').trim() || cssVar('--color-link', '#4967aa'),
+		textColor: computed.getPropertyValue('--scholar-text').trim() || '#ffffff',
+		dashed: computed.getPropertyValue('--scholar-dash').trim() !== 'none'
+	};
+	document.body.removeChild(probe);
+	cache.set(seat, result);
+	return result;
+}
+
+/**
+ * Retints the OpenFreeMap (OpenMapTiles-schema) base style with
+ * docs/brand/map-theme.json's colours, read live from the `--map-*` tokens
+ * so light/dark/system-theme-change all just work. Keeps the provider's own
+ * layer structure/filters - only paint colour is overridden, so this stays
+ * swappable the way src/config/map.ts's own comment promises.
+ */
+function applyMapTheme(map: MapLibreMap) {
+	const theme = {
+		land: cssVar('--map-land', '#edeae3'),
+		water: cssVar('--map-water', '#c9d5dc'),
+		park: cssVar('--map-park', '#e1e3d6'),
+		building: cssVar('--map-building', '#e4e0d7'),
+		road: cssVar('--map-road', '#ffffff'),
+		roadMajor: cssVar('--map-road-major', '#fbfaf7'),
+		boundary: cssVar('--map-boundary', '#c4bbac'),
+		label: cssVar('--map-label', '#6e6e6b'),
+		labelHalo: cssVar('--map-label-halo', '#edeae3'),
+		dimmed: cssVar('--map-dimmed', '#a9a69f')
+	};
+
+	for (const layer of map.getStyle().layers ?? []) {
+		const id = layer.id;
+		try {
+			if (layer.type === 'background') {
+				map.setPaintProperty(id, 'background-color', theme.land);
+			} else if (layer.type === 'symbol') {
+				map.setPaintProperty(id, 'text-color', theme.label);
+				map.setPaintProperty(id, 'text-halo-color', theme.labelHalo);
+			} else if (id === 'water' || id === 'waterway' || id.startsWith('waterway')) {
+				map.setPaintProperty(id, layer.type === 'fill' ? 'fill-color' : 'line-color', theme.water);
+			} else if (id === 'park' || id === 'landcover_wood') {
+				map.setPaintProperty(id, 'fill-color', theme.park);
+			} else if (id.startsWith('landcover') || id.startsWith('landuse')) {
+				map.setPaintProperty(id, 'fill-color', theme.land);
+			} else if (id === 'building') {
+				map.setPaintProperty(id, 'fill-color', theme.building);
+			} else if (id.startsWith('boundary')) {
+				map.setPaintProperty(id, 'line-color', theme.boundary);
+			} else if (id.startsWith('railway')) {
+				map.setPaintProperty(id, 'line-color', theme.dimmed);
+			} else if (
+				id.startsWith('highway_motorway') ||
+				id.startsWith('highway_major') ||
+				id.startsWith('tunnel_motorway')
+			) {
+				map.setPaintProperty(id, 'line-color', theme.roadMajor);
+			} else if (
+				id.startsWith('highway_minor') ||
+				id.startsWith('highway_path') ||
+				id.startsWith('road_') ||
+				id.startsWith('aeroway')
+			) {
+				map.setPaintProperty(id, 'line-color', theme.road);
+			}
+		} catch {
+			// Not every layer has the paint property being set (e.g. a shield
+			// symbol layer with no visible text) - setPaintProperty throws for an
+			// unknown property name on that layer type, which is fine to skip.
+		}
+	}
+}
+
+export default function TimelineExplorer({ entries, legs, places, people, labels }: Props) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<MapLibreMap | null>(null);
+	const seatStyleCache = useRef(new Map<number, SeatStyle>());
+	const campusMarkersRef = useRef<Marker[]>([]);
+	const [sheetOpen, setSheetOpen] = useState(false);
 
 	const sortedEntries = [...entries].sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : 1));
 	const initialDate = readDateFromUrl() ?? sortedEntries.at(-1)?.occurredAt ?? '';
@@ -75,7 +186,17 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 	function navigateTo(nextDate: string | undefined, options: { scrollJournal?: boolean } = {}) {
 		if (!nextDate) return;
 		setDate(nextDate);
-		if (options.scrollJournal !== false) {
+		// Scrolling defaults to off: the slider/keyboard/prev-next buttons are
+		// map controls, and scrollIntoView-ing the matching journal card could
+		// carry the map itself out of the viewport (the map sits above the
+		// journal list in the DOM) - which then makes a *second* marker click
+		// impossible without the reader first scrolling back up by hand (caught
+		// in e2e testing: the slider-then-click test's click landed at a
+		// negative, off-screen y coordinate once this scroll had happened).
+		// A marker click is the one interaction that should still jump to its
+		// journal entry, since that's the point of clicking it - it opts in
+		// explicitly below.
+		if (options.scrollJournal === true) {
 			const entry = entries.find((e) => e.occurredAt === nextDate);
 			document.getElementById(`entry-${entry?.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
@@ -95,12 +216,16 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 			container: containerRef.current,
 			style: MAP_STYLE_URL,
 			center: placeCoords(places, sortedEntries.at(-1)?.placeId ?? null) ?? MAP_DEFAULT_CENTER,
-			zoom: MAP_DEFAULT_ZOOM
+			zoom: MAP_DEFAULT_ZOOM,
+			// Two-finger pan / ctrl+scroll zoom on touch and trackpads, so a
+			// normal one-finger swipe keeps scrolling the page instead of
+			// panning the map (.claude/rules/map-and-timeline.md).
+			cooperativeGestures: true
 		});
 		mapRef.current = map;
 		// e2e-test-only accessor: a WebGL canvas has no inspectable DOM content,
 		// so the explore.spec.ts test uses this to compute a marker's real pixel
-		// position via map.project() rather than guessing coordinates.
+		// position via map.project(), and to wait for camera moves to finish.
 		(window as unknown as { __explorerMap?: MapLibreMap }).__explorerMap = map;
 
 		map.on('load', () => {
@@ -113,18 +238,66 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 			});
 			map.addSource('legs', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
-			const accent = getComputedStyle(document.documentElement).getPropertyValue('--color-link').trim() || '#4967aa';
-			const muted = getComputedStyle(document.documentElement).getPropertyValue('--color-text-muted').trim() || '#5c5a55';
+			applyMapTheme(map);
+			const dimmed = cssVar('--map-dimmed', '#a9a69f');
+			const land = cssVar('--map-land', '#edeae3');
+			const casing = cssVar('--map-trail-casing', '#f4f2ed');
 
+			// Casing first, so the coloured seat lines render on top of it.
 			map.addLayer({
-				id: 'legs-line',
+				id: 'legs-casing',
 				type: 'line',
 				source: 'legs',
-				layout: { 'line-cap': 'round' },
+				layout: { 'line-cap': 'round', 'line-join': 'round' },
 				paint: {
-					'line-color': ['case', ['==', ['get', 'status'], 'current'], accent, muted],
-					'line-width': ['case', ['==', ['get', 'status'], 'current'], 3, 1.5],
+					'line-color': casing,
+					'line-width': ['interpolate', ['linear'], ['zoom'], 2, 3.5, 8, 4.5, 14, 5.5],
 					'line-opacity': ['case', ['==', ['get', 'status'], 'current'], 1, 0.6]
+				}
+			});
+			map.addLayer({
+				id: 'legs-line-solid',
+				type: 'line',
+				source: 'legs',
+				filter: ['!', ['get', 'dashed']],
+				layout: { 'line-cap': 'round', 'line-join': 'round' },
+				paint: {
+					'line-color': ['get', 'color'],
+					'line-width': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						2,
+						['case', ['get', 'isFlight'], 1, 1.5],
+						8,
+						['case', ['get', 'isFlight'], 1.5, 2.5],
+						14,
+						['case', ['get', 'isFlight'], 1.5, 3.5]
+					],
+					'line-opacity': ['case', ['==', ['get', 'status'], 'current'], 1, 0.6]
+				}
+			});
+			map.addLayer({
+				id: 'legs-line-dashed',
+				type: 'line',
+				source: 'legs',
+				filter: ['get', 'dashed'],
+				layout: { 'line-cap': 'butt', 'line-join': 'round' },
+				paint: {
+					'line-color': ['get', 'color'],
+					'line-width': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						2,
+						['case', ['get', 'isFlight'], 1, 1.5],
+						8,
+						['case', ['get', 'isFlight'], 1.5, 2.5],
+						14,
+						['case', ['get', 'isFlight'], 1.5, 3.5]
+					],
+					'line-opacity': ['case', ['==', ['get', 'status'], 'current'], 1, 0.6],
+					'line-dasharray': [2, 1.4]
 				}
 			});
 
@@ -133,7 +306,7 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 				type: 'circle',
 				source: 'markers',
 				filter: ['has', 'point_count'],
-				paint: { 'circle-color': muted, 'circle-radius': 14, 'circle-opacity': 0.85 }
+				paint: { 'circle-color': dimmed, 'circle-radius': 14, 'circle-opacity': 0.9 }
 			});
 			map.addLayer({
 				id: 'cluster-count',
@@ -141,25 +314,41 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 				source: 'markers',
 				filter: ['has', 'point_count'],
 				layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 12 },
-				paint: { 'text-color': '#ffffff' }
+				paint: { 'text-color': land }
 			});
+			// Scholar marker: coloured circle (map-theme.json markers.scholar,
+			// size 28 -> radius 14) with a land-coloured ring, initials on top.
 			map.addLayer({
 				id: 'marker-point',
 				type: 'circle',
 				source: 'markers',
 				filter: ['!', ['has', 'point_count']],
 				paint: {
-					'circle-color': ['case', ['get', 'isActive'], accent, muted],
-					'circle-radius': ['case', ['get', 'isActive'], 8, 5],
+					'circle-color': ['get', 'color'],
+					'circle-radius': ['case', ['get', 'isActive'], 14, 11],
 					'circle-stroke-width': 2,
-					'circle-stroke-color': '#ffffff'
+					'circle-stroke-color': land
 				}
+			});
+			map.addLayer({
+				id: 'marker-initials',
+				type: 'symbol',
+				source: 'markers',
+				filter: ['!', ['has', 'point_count']],
+				layout: {
+					'text-field': ['get', 'initials'],
+					'text-size': 11,
+					'text-font': ['Noto Sans Bold'],
+					'text-allow-overlap': true,
+					'text-ignore-placement': true
+				},
+				paint: { 'text-color': ['get', 'textColor'] }
 			});
 
 			map.on('click', 'marker-point', (e) => {
 				const entryId = e.features?.[0]?.properties?.entryId;
 				const entry = entries.find((en) => en.id === entryId);
-				if (entry) navigateTo(entry.occurredAt);
+				if (entry) navigateTo(entry.occurredAt, { scrollJournal: true });
 			});
 			map.on('mouseenter', 'marker-point', () => {
 				map.getCanvas().style.cursor = 'pointer';
@@ -167,6 +356,26 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 			map.on('mouseleave', 'marker-point', () => {
 				map.getCanvas().style.cursor = '';
 			});
+
+			// Campus markers (map-theme.json campuses + markers.campus): plain
+			// HTML markers, not a map layer - there are only three, they never
+			// move, and a square tile with a glyph is far simpler as DOM+CSS
+			// than rasterizing the kit's SVGs into a sprite for an icon-image.
+			for (const campus of CAMPUSES) {
+				const el = document.createElement('div');
+				el.className = 'campus-marker';
+				el.title = campus.nameEn;
+				// Mask rather than <img src>: the glyph SVGs use stroke="currentColor",
+				// which only resolves against the host page's styles through a CSS
+				// mask, not inside an externally-loaded <img> document.
+				const glyph = document.createElement('span');
+				glyph.className = 'campus-marker-glyph';
+				glyph.style.maskImage = `url(${campus.glyph})`;
+				glyph.style.setProperty('-webkit-mask-image', `url(${campus.glyph})`);
+				el.appendChild(glyph);
+				const marker = new Marker({ element: el, anchor: 'center' }).setLngLat([campus.lon, campus.lat]).addTo(map);
+				campusMarkersRef.current.push(marker);
+			}
 
 			syncMapToState();
 		});
@@ -176,7 +385,20 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 			map.stop();
 		});
 
+		const darkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+		const onThemeChange = () => {
+			seatStyleCache.current.clear();
+			if (map.isStyleLoaded()) {
+				applyMapTheme(map);
+				syncMapToState();
+			}
+		};
+		darkMediaQuery.addEventListener('change', onThemeChange);
+
 		return () => {
+			darkMediaQuery.removeEventListener('change', onThemeChange);
+			for (const marker of campusMarkersRef.current) marker.remove();
+			campusMarkersRef.current = [];
 			map.remove();
 			mapRef.current = null;
 			delete (window as unknown as { __explorerMap?: MapLibreMap }).__explorerMap;
@@ -184,18 +406,39 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	function markerStyleForPerson(personId: number): { color: string; textColor: string } {
+		const seat = people[personId]?.seat;
+		if (seat === null || seat === undefined) {
+			return { color: cssVar('--map-dimmed', '#a9a69f'), textColor: '#ffffff' };
+		}
+		const style = readSeatStyle(seat, seatStyleCache.current);
+		return { color: style.color, textColor: style.textColor };
+	}
+
 	function syncMapToState() {
 		const map = mapRef.current;
-		if (!map || !map.isStyleLoaded()) return;
+		// Not map.isStyleLoaded(): that call is itself what the 'load' handler
+		// below is waiting on, and adding the markers/legs sources in that same
+		// handler (just before calling this) can leave isStyleLoaded() false
+		// for a tick even though those sources are already there and settable -
+		// which silently dropped every marker/leg until the next unrelated
+		// state change happened to call this again (caught by comparing what
+		// the map actually rendered against computeTimelineState's own output
+		// for the same input, not by guessing from the symptom). Checking for
+		// the source directly is what this guard actually needs: skip only the
+		// call(s) that land before 'load' has added it at all.
+		if (!map || !map.getSource('markers')) return;
 
 		const markerFeatures = state.visibleMarkers
 			.map((marker) => {
 				const coords = placeCoords(places, marker.placeId);
 				if (!coords) return undefined;
+				const { color, textColor } = markerStyleForPerson(marker.personId);
+				const initials = initialsFor(people[marker.personId]?.displayName ?? '?');
 				return {
 					type: 'Feature' as const,
 					geometry: { type: 'Point' as const, coordinates: coords },
-					properties: { entryId: marker.entryId, isActive: marker.isActive }
+					properties: { entryId: marker.entryId, isActive: marker.isActive, color, textColor, initials }
 				};
 			})
 			.filter((f): f is NonNullable<typeof f> => f !== undefined);
@@ -212,14 +455,22 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 				const from = placeCoords(places, leg.fromPlaceId);
 				const to = placeCoords(places, leg.toPlaceId);
 				if (!from || !to) return undefined;
-				const geometry =
-					leg.mode === 'flight'
-						? greatCircle(from, to).geometry
-						: { type: 'LineString' as const, coordinates: [from, to] };
+				const isFlight = leg.mode === 'flight';
+				const geometry = isFlight
+					? greatCircle(from, to).geometry
+					: { type: 'LineString' as const, coordinates: [from, to] };
+				const seat = people[leg.personId]?.seat;
+				const seatStyle = seat !== null && seat !== undefined ? readSeatStyle(seat, seatStyleCache.current) : undefined;
 				return {
 					type: 'Feature' as const,
 					geometry,
-					properties: { legId: leg.id, status: progress.status }
+					properties: {
+						legId: leg.id,
+						status: progress.status,
+						isFlight,
+						color: seatStyle?.color ?? cssVar('--color-link', '#4967aa'),
+						dashed: seatStyle?.dashed ?? false
+					}
 				};
 			})
 			.filter((f): f is NonNullable<typeof f> => f !== undefined);
@@ -271,7 +522,20 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 		// every state has its own URL (spec section 6), not just ones reached by interacting.
 		writeDateToUrl(date);
 		syncMapToState();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [date]);
+
+	// Resize the map whenever the mobile bottom sheet opens/closes - the
+	// canvas is sized by its container (0 while the sheet is collapsed), and
+	// MapLibre needs an explicit nudge, both right away and once more after
+	// the CSS height transition (--duration-base) actually finishes.
+	useEffect(() => {
+		const map = mapRef.current;
+		if (!map) return;
+		map.resize();
+		const timeout = setTimeout(() => map.resize(), 260);
+		return () => clearTimeout(timeout);
+	}, [sheetOpen]);
 
 	// Scroll-sync: the journal cards are server-rendered Astro markup sitting
 	// beside this island, not React-owned - observed directly via the DOM.
@@ -327,10 +591,23 @@ export default function TimelineExplorer({ entries, legs, places, labels }: Prop
 	}
 
 	const activeIndex = sortedEntries.findIndex((e) => e.id === state.activeEntries[0]?.id);
+	const activePlace = places.find((p) => p.id === state.activeEntries[0]?.placeId);
 
 	return (
 		<div className="timeline-explorer">
-			<div ref={containerRef} className="map-container" role="application" aria-label="Route map" />
+			<div className={`map-panel${sheetOpen ? ' map-panel--open' : ''}`}>
+				<div ref={containerRef} className="map-container" role="application" aria-label="Route map" />
+			</div>
+			<button
+				type="button"
+				className="map-sheet-toggle"
+				aria-expanded={sheetOpen}
+				onClick={() => setSheetOpen((open) => !open)}
+			>
+				<span className="sheet-toggle-place">{activePlace?.label ?? ''}</span>
+				<span className="sheet-toggle-date t-data">{date.slice(0, 10)}</span>
+				<span className="sheet-toggle-action">{sheetOpen ? labels.closeMap : labels.openMap}</span>
+			</button>
 			<div className="slider-controls">
 				<button
 					type="button"
