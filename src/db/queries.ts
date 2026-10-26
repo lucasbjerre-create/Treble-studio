@@ -297,8 +297,21 @@ export interface ConfirmedCrossing {
  * crossing row is even selected, not filtered out afterward, so there's no
  * code path that builds a response containing one and then has to remember
  * to strip it.
+ *
+ * Being confirmed is not the same as being visible: a crossing's own
+ * metadata (that these two people were in this place during this date
+ * range) is itself audience-gated by requiring at least one of the
+ * participants' own entries in that window to actually be visible to
+ * `viewer` - otherwise a public viewer could learn two people crossed paths
+ * purely from a confirmed-but-otherwise-entirely-family/private crossing,
+ * which is exactly the kind of cross-person inference the unconfirmed-case
+ * rule (never reveal a crossing exists) is also protecting against.
  */
-export async function listConfirmedCrossingsForViewer(db: Database): Promise<ConfirmedCrossing[]> {
+export async function listConfirmedCrossingsForViewer(
+	db: Database,
+	viewer: Viewer,
+	now: string
+): Promise<ConfirmedCrossing[]> {
 	const participantRows = await db
 		.select({
 			crossingId: schema.crossingParticipants.crossingId,
@@ -321,13 +334,23 @@ export async function listConfirmedCrossingsForViewer(db: Database): Promise<Con
 
 	const crossingRows = await db.select().from(schema.crossings).where(inArray(schema.crossings.id, confirmedIds));
 
-	return crossingRows.map((c) => ({
+	const crossings = crossingRows.map((c) => ({
 		id: c.id,
 		placeId: c.placeId,
 		startsOn: c.startsOn,
 		endsOn: c.endsOn,
 		personIds: (byCrossing.get(c.id) ?? []).map((p) => p.personId)
 	}));
+
+	if (viewer === 'studio') return crossings;
+
+	const visible = await Promise.all(
+		crossings.map(async (crossing) => {
+			const entries = await listEntriesForCrossing(db, viewer, crossing, now);
+			return entries.length > 0 ? crossing : null;
+		})
+	);
+	return visible.filter((c): c is ConfirmedCrossing => c !== null);
 }
 
 /**
