@@ -1,6 +1,6 @@
 import { AwsClient } from 'aws4fetch';
 import { env } from 'cloudflare:workers';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { LOCATION_DELAY_HOURS, R2_BUCKET_NAME } from '../../config/site';
@@ -359,4 +359,48 @@ studioApi.get('/media-file/:path{.+}', async (c) => {
 			'Cache-Control': 'private, max-age=3600'
 		}
 	});
+});
+
+// ---- followers (milestone 5) ----
+
+studioApi.get('/followers', async (c) => {
+	const db = getDb();
+	const rows = await db
+		.select()
+		.from(schema.follows)
+		.where(eq(schema.follows.personId, c.get('personId')))
+		.orderBy(desc(schema.follows.createdAt));
+	return c.json(rows);
+});
+
+studioApi.post('/followers/:id/approve', async (c) => {
+	const id = Number(c.req.param('id'));
+	if (!Number.isInteger(id)) return c.json({ error: 'Invalid id' }, 400);
+
+	const db = getDb();
+	const existing = await db
+		.select({ id: schema.follows.id })
+		.from(schema.follows)
+		.where(and(eq(schema.follows.id, id), eq(schema.follows.personId, c.get('personId'))))
+		.limit(1);
+	if (existing.length === 0) return c.json({ error: 'Not found' }, 404);
+
+	await db.update(schema.follows).set({ status: 'approved' }).where(eq(schema.follows.id, id));
+	return c.json({ ok: true });
+});
+
+studioApi.post('/followers/:id/revoke', async (c) => {
+	const id = Number(c.req.param('id'));
+	if (!Number.isInteger(id)) return c.json({ error: 'Invalid id' }, 400);
+
+	const db = getDb();
+	const existing = await db
+		.select({ id: schema.follows.id })
+		.from(schema.follows)
+		.where(and(eq(schema.follows.id, id), eq(schema.follows.personId, c.get('personId'))))
+		.limit(1);
+	if (existing.length === 0) return c.json({ error: 'Not found' }, 404);
+
+	await db.update(schema.follows).set({ status: 'revoked' }).where(eq(schema.follows.id, id));
+	return c.json({ ok: true });
 });

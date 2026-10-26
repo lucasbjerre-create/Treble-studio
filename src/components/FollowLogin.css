@@ -1,0 +1,72 @@
+.follow-login {
+	max-width: 24rem;
+	padding: var(--space-6);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	font-family: var(--font-sans);
+}
+
+.follow-login h2 {
+	font-family: var(--font-serif);
+	font-size: var(--text-h4);
+	margin: 0 0 var(--space-2);
+	color: var(--color-text);
+}
+
+.follow-login p {
+	font-size: var(--text-small);
+	color: var(--color-text-muted);
+	margin: 0 0 var(--space-4);
+}
+
+.follow-login form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+}
+
+.follow-login label {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	font-size: var(--text-small);
+	color: var(--color-text-muted);
+}
+
+.follow-login input {
+	min-height: var(--touch-min);
+	padding: 0 var(--space-3);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-xs);
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+}
+
+.follow-login button {
+	min-height: var(--touch-min);
+	padding: 0 var(--space-4);
+	border: none;
+	border-radius: var(--radius-xs);
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+	font-family: var(--font-sans);
+	font-size: var(--text-ui);
+	font-weight: var(--weight-medium);
+	cursor: pointer;
+}
+
+.follow-login button:disabled {
+	background: var(--color-border-strong);
+	cursor: default;
+}
+
+.follow-login .hint {
+	color: var(--color-text);
+}
+
+.follow-login .error {
+	color: var(--color-error);
+}

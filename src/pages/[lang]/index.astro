@@ -8,7 +8,8 @@ import {
 	listChaptersForPerson,
 	listEntriesForViewer,
 	listMediaForEntry,
-	listPeopleWithVisibleEntries
+	listPeopleWithVisibleEntries,
+	resolveViewerForPerson
 } from '../../db/queries';
 import { PRIMARY_PERSON_SLUG } from '../../config/site';
 import { isLocale, t, type Locale } from '../../i18n/t';
@@ -31,7 +32,8 @@ if (!person) {
 	return new Response('Not found', { status: 404 });
 }
 
-const entries = await listEntriesForViewer(db, 'public', now, { personId: person.id });
+const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
+const entries = await listEntriesForViewer(db, viewer, now, { personId: person.id });
 const latest = entries[0];
 
 const chapters = await listChaptersForPerson(db, person.id);
@@ -50,7 +52,7 @@ if (latest) {
 	);
 	resolvedTitle = resolved.title;
 	resolvedDek = resolved.dek;
-	media = await listMediaForEntry(db, 'public', latest.id, now);
+	media = await listMediaForEntry(db, viewer, latest.id, now);
 }
 
 // Hidden until two or more people have a published entry this viewer can

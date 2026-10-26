@@ -316,7 +316,7 @@ About 0.9 MB per photo across three sizes. Ten photos plus one 40 MB clip is abo
 ## 9. Privacy rules
 
 - Audience on every entry. Private never reaches production. Enforced in SQL and in the Worker, never just hidden in the interface.
-- Family layer uses an explicit email allowlist in Cloudflare Access. Never "anyone with an email", never a whole university domain. /studio gets its own narrower policy. Test with an unapproved email after every policy change.
+- Family layer uses per-person followers (section 14, settled 2026-10-26): a visitor requests to follow by email, Lucas approves per person in `/studio`, and family-tier entries are visible only to an approved follower of that specific person - never "anyone with an email," never a whole university domain, never one shared allowlist. `/studio` itself stays on its own, separate Cloudflare Access policy, narrower than this. Test with an unapproved email after every policy change.
 - Family media served through the Worker or short lived signed URLs. R2 stays private, r2.dev off.
 - Public points at city or area level. Never my home, dorm, regular study spot, gym, a friend's home or any hotel.
 - Coordinates rounded on the server before they reach the browser. No exact coordinates in page source, JSON, filenames, RSS or link previews.
@@ -476,6 +476,7 @@ Only if at least two students actually want it. Separate repo, fictional sample 
 **Settled**
 - Custom domain: `treble.cordoza.dk`, a subdomain of Lucas's existing `cordoza.dk`. Decided 2026-10-23, not for branding but because Cloudflare Access's path-scoped applications require a DNS zone the account owns, which the shared `workers.dev` domain isn't - /studio couldn't be gated without it. The Worker's `workers.dev` URL is now disabled (Wrangler's default once a custom domain route is set).
 - Route accent colour (item 4 below): settled by the TREBLE brand kit, decided 2026-10-24. There is no single bespoke "route accent" any more - interactive colour is the kit's `--color-link` (CBS blue, ink only), and routes/trails on the map use each scholar's seat colour (section 6) rather than one shared accent. The "muted red placeholder" token this item used to point at is gone.
+- "Family" becomes "followers of this person": decided 2026-10-26, milestone 5 built on it. Not one shared family list any more - a visitor emails to ask, Lucas approves per person in `/studio`, and only an approved follower of *that specific person* sees their family-tier entries. Following one person never implies following another. Replaces the family-tier half of the Cloudflare Access allowlist described in section 9 below (Access still gates `/studio` itself, unchanged).
 
 **Needed before building**
 1. Audience model. Family first with opt in public entries (this file's default), or public first with a family layer on top.
@@ -496,9 +497,6 @@ Only if at least two students actually want it. Separate repo, fictional sample 
 14. How candid to be about loneliness, money, grades and relationships, and the rule for party and dating content.
 15. Planned future destinations shown faintly, or only places already visited.
 16. Should links sent to grandparents open in simple view by default.
-
-**Needed before milestone 5**
-- Whether "family" becomes "followers of this person" if the site goes group - a per-person follow relationship instead of one shared family list. Decide before milestone 5 (Viewers and followers).
 
 **Can wait**
 17. Grades ever visible.

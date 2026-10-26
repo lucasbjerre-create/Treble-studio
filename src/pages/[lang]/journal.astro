@@ -9,7 +9,8 @@ import {
 	getPersonBySlug,
 	getPlaceById,
 	listEntriesForViewer,
-	listMediaForEntry
+	listMediaForEntry,
+	resolveViewerForPerson
 } from '../../db/queries';
 import { PRIMARY_PERSON_SLUG } from '../../config/site';
 import { isLocale, t, type Locale } from '../../i18n/t';
@@ -31,11 +32,13 @@ if (!person) {
 	return new Response('Not found', { status: 404 });
 }
 
+const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
+
 const entrySlugParam = Astro.url.searchParams.get('entry');
 
 const entry = entrySlugParam
-	? await getEntryBySlugForViewer(db, 'public', person.slug, entrySlugParam, now)
-	: (await listEntriesForViewer(db, 'public', now, { personId: person.id }))[0];
+	? await getEntryBySlugForViewer(db, viewer, person.slug, entrySlugParam, now)
+	: (await listEntriesForViewer(db, viewer, now, { personId: person.id }))[0];
 
 if (entrySlugParam && !entry) {
 	return new Response('Not found', { status: 404 });
@@ -52,9 +55,9 @@ let placeLabel: string | null = null;
 if (entry) {
 	const [translation, mediaRows, adjacentRows, place] = await Promise.all([
 		getEntryTranslation(db, entry.id, lang),
-		listMediaForEntry(db, 'public', entry.id, now),
-		getAdjacentEntries(db, 'public', entry.personId, entry.occurredAt, now),
-		entry.placeId ? getPlaceById(db, 'public', entry.placeId) : Promise.resolve(undefined)
+		listMediaForEntry(db, viewer, entry.id, now),
+		getAdjacentEntries(db, viewer, entry.personId, entry.occurredAt, now),
+		entry.placeId ? getPlaceById(db, viewer, entry.placeId) : Promise.resolve(undefined)
 	]);
 
 	media = mediaRows;

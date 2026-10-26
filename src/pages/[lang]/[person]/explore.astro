@@ -8,7 +8,8 @@ import {
 	listEntryTranslations,
 	listLegsForViewer,
 	listMediaForEntry,
-	listPlacesForViewer
+	listPlacesForViewer,
+	resolveViewerForPerson
 } from '../../../db/queries';
 import { isLocale, t, type Locale } from '../../../i18n/t';
 import { resolveEntryText } from '../../../lib/translation';
@@ -28,9 +29,11 @@ if (!person) {
 	return new Response('Not found', { status: 404 });
 }
 
-const entries = await listEntriesForViewer(db, 'public', now, { personId: person.id });
-const legs = await listLegsForViewer(db, 'public', now);
-const places = await listPlacesForViewer(db, 'public');
+const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
+
+const entries = await listEntriesForViewer(db, viewer, now, { personId: person.id });
+const legs = await listLegsForViewer(db, viewer, now);
+const places = await listPlacesForViewer(db, viewer);
 
 const translations = await listEntryTranslations(
 	db,
@@ -45,7 +48,7 @@ const cards = await Promise.all(
 			translations.get(entry.id),
 			lang
 		);
-		const media = await listMediaForEntry(db, 'public', entry.id, now);
+		const media = await listMediaForEntry(db, viewer, entry.id, now);
 		return {
 			id: entry.id,
 			slug: entry.slug,

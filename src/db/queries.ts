@@ -245,8 +245,9 @@ export async function listChaptersForPerson(db: Database, personId: number) {
 
 /**
  * Hides future-dated legs from public/family (privacy.md). Does NOT yet trim
- * route geometry near home - that's milestone 5 (family layer and privacy
- * hardening), not implemented here. geometry_json is returned as-is.
+ * route geometry near home - that's milestone 7 (family layer and privacy
+ * hardening, renumbered from the original 5 when the group path was chosen),
+ * not implemented here. geometry_json is returned as-is.
  */
 export async function listLegsForViewer(
 	db: Database,
@@ -261,6 +262,27 @@ export async function listLegsForViewer(
 	let query = db.select().from(schema.legs).$dynamic();
 	if (where) query = query.where(where);
 	return query.orderBy(asc(schema.legs.startsAt));
+}
+
+/**
+ * Per-page viewer resolution for milestone 5's followers model: a follower
+ * of one person isn't automatically a follower of another (BUILD_PLAN), so
+ * this is checked per (viewer email, this page's person) pair rather than
+ * being a flat site-wide tier. Every existing query helper above keeps
+ * taking the same Viewer type unchanged - a page just resolves which of
+ * 'public'/'family' applies before calling them, exactly as it already
+ * passes a literal 'public' today.
+ */
+export async function resolveViewerForPerson(db: Database, viewerEmail: string | null, personId: number): Promise<Viewer> {
+	if (!viewerEmail) return 'public';
+	const rows = await db
+		.select({ id: schema.follows.id })
+		.from(schema.follows)
+		.where(
+			and(eq(schema.follows.email, viewerEmail), eq(schema.follows.personId, personId), eq(schema.follows.status, 'approved'))
+		)
+		.limit(1);
+	return rows.length > 0 ? 'family' : 'public';
 }
 
 /**
@@ -391,4 +413,9 @@ export async function listPeopleWithVisibleEntries(db: Database, viewer: Viewer,
 	if (personIds.length === 0) return [];
 
 	return db.select(publicPersonColumns).from(schema.people).where(inArray(schema.people.id, personIds));
+}
+
+/** Studio-only: every follow request (pending/approved/revoked) for one person, newest first. */
+export async function listFollowersForPerson(db: Database, personId: number) {
+	return db.select().from(schema.follows).where(eq(schema.follows.personId, personId)).orderBy(desc(schema.follows.createdAt));
 }

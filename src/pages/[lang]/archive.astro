@@ -5,7 +5,8 @@ import {
 	getPersonBySlug,
 	listChaptersForPerson,
 	listEntriesForViewer,
-	listEntryTranslations
+	listEntryTranslations,
+	resolveViewerForPerson
 } from '../../db/queries';
 import { PRIMARY_PERSON_SLUG } from '../../config/site';
 import { isLocale, t, type Locale } from '../../i18n/t';
@@ -30,7 +31,8 @@ if (!person) {
 	return new Response('Not found', { status: 404 });
 }
 
-const entries = await listEntriesForViewer(db, 'public', now, { personId: person.id, category });
+const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
+const entries = await listEntriesForViewer(db, viewer, now, { personId: person.id, category });
 const translations = await listEntryTranslations(
 	db,
 	entries.map((e) => e.id),

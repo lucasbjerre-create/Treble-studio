@@ -47,5 +47,19 @@ export const da: Dictionary = {
 		public: 'Offentlig',
 		family: 'Kun følgere',
 		private: 'Kun mig'
+	},
+	follow: {
+		gatedTitle: 'Kun for følgere',
+		gatedBody: 'Dette er kun for følgere. Indtast din email for at bede om at følge, eller log ind hvis du allerede gør.',
+		emailLabel: 'Email',
+		emailPlaceholder: 'dig@eksempel.dk',
+		requestButton: 'Send mig en kode',
+		requestSent: 'Tjek din email for en 6-cifret kode.',
+		codeLabel: 'Kode',
+		codePlaceholder: '123456',
+		verifyButton: 'Log ind',
+		verifyError: 'Koden virkede ikke - tjek den og prøv igen.',
+		pending: 'Du er logget ind. Din anmodning om at følge venter på godkendelse.',
+		genericError: 'Noget gik galt - prøv igen om lidt.'
 	}
 };

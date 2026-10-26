@@ -2,6 +2,8 @@ declare namespace App {
 	interface Locals {
 		/** Set by src/middleware.ts once the Cloudflare Access JWT verifies. */
 		accessEmail: string;
+		/** Set by src/middleware.ts on every request - null when not logged in as a follower. */
+		viewerEmail: string | null;
 	}
 }
 
@@ -25,5 +27,8 @@ declare namespace Cloudflare {
 		POLICY_AUD?: string;
 		R2_ACCESS_KEY_ID?: string;
 		R2_SECRET_ACCESS_KEY?: string;
+		// Milestone 5: viewer login (src/worker/viewerSession.ts, src/worker/email.ts).
+		VIEWER_SESSION_SECRET?: string;
+		RESEND_API_KEY?: string;
 	}
 }

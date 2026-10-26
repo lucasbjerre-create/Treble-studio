@@ -5,7 +5,15 @@ import PhotoSequence from '../../../components/compositions/PhotoSequence.astro'
 import ShortDispatch from '../../../components/compositions/ShortDispatch.astro';
 import StandardStory from '../../../components/compositions/StandardStory.astro';
 import { getDb } from '../../../db/client';
-import { getAdjacentEntries, getEntryBySlugForViewer, getEntryTranslation, listMediaForEntry } from '../../../db/queries';
+import {
+	getAdjacentEntries,
+	getEntryBySlugForViewer,
+	getEntryTranslation,
+	getPersonBySlug,
+	listMediaForEntry,
+	resolveViewerForPerson
+} from '../../../db/queries';
+import FollowLogin from '../../../components/FollowLogin';
 import { isLocale, t, type Locale } from '../../../i18n/t';
 import { compositionForFormat } from '../../../lib/composition';
 import { resolveEntryText } from '../../../lib/translation';
@@ -21,66 +29,113 @@ const otherLang: Locale = lang === 'en' ? 'da' : 'en';
 const db = getDb();
 const now = new Date().toISOString();
 
-const entry = await getEntryBySlugForViewer(db, 'public', personSlug, slug, now);
-if (!entry) {
+const person = await getPersonBySlug(db, 'public', personSlug);
+if (!person) {
 	return new Response('Not found', { status: 404 });
 }
+const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
 
-const [translation, media, adjacent] = await Promise.all([
-	getEntryTranslation(db, entry.id, lang),
-	listMediaForEntry(db, 'public', entry.id, now),
-	getAdjacentEntries(db, 'public', entry.personId, entry.occurredAt, now)
-]);
+const entry = await getEntryBySlugForViewer(db, viewer, personSlug, slug, now);
 
-const resolved = resolveEntryText(
-	{ originalLang: entry.originalLang, title: entry.title, dek: entry.dek, bodyMd: entry.bodyMd },
-	translation,
-	lang
-);
+// A family-tier entry that exists but this viewer isn't an approved
+// follower for shows a follow/login prompt, not a flat 404 - but only once
+// a 'family'-tier lookup actually confirms it exists and is published, so
+// this never reveals a private/draft slug's existence to a stranger.
+let gated = false;
+if (!entry) {
+	if (viewer === 'public') {
+		const familyCheck = await getEntryBySlugForViewer(db, 'family', personSlug, slug, now);
+		gated = Boolean(familyCheck);
+	}
+	if (!gated) {
+		return new Response('Not found', { status: 404 });
+	}
+}
 
-const entryForDisplay = {
-	title: resolved.title,
-	dek: resolved.dek,
-	bodyMd: resolved.bodyMd,
-	occurredAt: entry.occurredAt,
-	timezone: entry.timezone,
-	format: entry.format,
-	translationNote: resolved.isFallback ? dict.entry.translationNote : null
-};
+let media: Awaited<ReturnType<typeof listMediaForEntry>> = [];
+let adjacent: Awaited<ReturnType<typeof getAdjacentEntries>> | undefined;
+let entryForDisplay: {
+	title: string;
+	dek: string | null;
+	bodyMd: string | null;
+	occurredAt: string;
+	timezone: string;
+	format: string;
+	translationNote: string | null;
+} | null = null;
+let composition: ReturnType<typeof compositionForFormat> | null = null;
+let resolvedTitle: string | null = null;
+let resolvedDek: string | null = null;
 
-const composition = compositionForFormat(entry.format);
+if (entry) {
+	const [translation, mediaRows, adjacentRows] = await Promise.all([
+		getEntryTranslation(db, entry.id, lang),
+		listMediaForEntry(db, viewer, entry.id, now),
+		getAdjacentEntries(db, viewer, entry.personId, entry.occurredAt, now)
+	]);
+	media = mediaRows;
+	adjacent = adjacentRows;
+
+	const resolved = resolveEntryText(
+		{ originalLang: entry.originalLang, title: entry.title, dek: entry.dek, bodyMd: entry.bodyMd },
+		translation,
+		lang
+	);
+	resolvedTitle = resolved.title;
+	resolvedDek = resolved.dek;
+
+	entryForDisplay = {
+		title: resolved.title,
+		dek: resolved.dek,
+		bodyMd: resolved.bodyMd,
+		occurredAt: entry.occurredAt,
+		timezone: entry.timezone,
+		format: entry.format,
+		translationNote: resolved.isFallback ? dict.entry.translationNote : null
+	};
+
+	composition = compositionForFormat(entry.format);
+}
 ---
 
 <BaseLayout
 	lang={lang}
-	title={resolved.title}
+	title={gated ? dict.follow.gatedTitle : (resolvedTitle ?? '')}
 	altPath={`/${otherLang}/${personSlug}/${slug}`}
-	description={resolved.dek ?? undefined}
+	description={gated ? undefined : (resolvedDek ?? undefined)}
 	canonicalPath={`/${lang}/${personSlug}/${slug}`}
 >
-	<main class="entry-page">
-		{composition === 'short_dispatch' && <ShortDispatch entry={entryForDisplay} media={media} />}
-		{composition === 'standard_story' && <StandardStory entry={entryForDisplay} media={media} />}
-		{composition === 'photo_sequence' && <PhotoSequence entry={entryForDisplay} media={media} />}
-		{composition === 'feature_chapter' && <FeatureChapter entry={entryForDisplay} media={media} />}
+	{
+		gated ? (
+			<main class="entry-gated">
+				<FollowLogin client:only="react" personSlug={personSlug} lang={lang} strings={dict.follow} />
+			</main>
+		) : (
+			<main class="entry-page">
+				{composition === 'short_dispatch' && entryForDisplay && <ShortDispatch entry={entryForDisplay} media={media} />}
+				{composition === 'standard_story' && entryForDisplay && <StandardStory entry={entryForDisplay} media={media} />}
+				{composition === 'photo_sequence' && entryForDisplay && <PhotoSequence entry={entryForDisplay} media={media} />}
+				{composition === 'feature_chapter' && entryForDisplay && <FeatureChapter entry={entryForDisplay} media={media} />}
 
-		<nav class="adjacent">
-			{
-				adjacent.prev ? (
-					<a href={`/${lang}/${personSlug}/${adjacent.prev.slug}`}>&larr; {dict.entry.previous}</a>
-				) : (
-					<span />
-				)
-			}
-			{
-				adjacent.next ? (
-					<a href={`/${lang}/${personSlug}/${adjacent.next.slug}`}>{dict.entry.next} &rarr;</a>
-				) : (
-					<span />
-				)
-			}
-		</nav>
-	</main>
+				<nav class="adjacent">
+					{
+						adjacent?.prev ? (
+							<a href={`/${lang}/${personSlug}/${adjacent.prev.slug}`}>&larr; {dict.entry.previous}</a>
+						) : (
+							<span />
+						)
+					}
+					{
+						adjacent?.next ? (
+							<a href={`/${lang}/${personSlug}/${adjacent.next.slug}`}>{dict.entry.next} &rarr;</a>
+						) : (
+							<span />
+						)
+					}
+				</nav>
+			</main>
+		)
+	}
 </BaseLayout>
 
 <style>
@@ -88,6 +143,14 @@ const composition = compositionForFormat(entry.format);
 		max-width: 44rem;
 		margin: 0 auto;
 		padding: var(--space-6) var(--grid-margin) var(--space-12);
+	}
+
+	.entry-gated {
+		max-width: 44rem;
+		margin: var(--space-12) auto;
+		padding: 0 var(--grid-margin);
+		display: flex;
+		justify-content: center;
 	}
 
 	.adjacent {

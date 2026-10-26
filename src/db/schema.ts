@@ -322,6 +322,39 @@ export const mediaTexts = sqliteTable(
 	(t) => [primaryKey({ columns: [t.mediaId, t.lang] })]
 );
 
+// Milestone 5: per-person followers, replacing the originally-planned
+// Cloudflare Access family allowlist (never built - Access stays
+// studio-only). A follower of one person isn't automatically a follower of
+// another - see resolveViewerForPerson in src/db/queries.ts.
+export const follows = sqliteTable(
+	'follows',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		email: text('email').notNull(),
+		personId: integer('person_id')
+			.notNull()
+			.references(() => people.id),
+		status: text('status', { enum: ['pending', 'approved', 'revoked'] }).notNull().default('pending'),
+		createdAt: text('created_at').notNull()
+	},
+	(t) => [uniqueIndex('follows_email_person_unique').on(t.email, t.personId), index('follows_person_id_idx').on(t.personId)]
+);
+
+// Short-lived login codes for the viewer session (src/worker/viewerSession.ts) -
+// codeHash only, never the raw code, same pattern as media.sha256.
+export const loginCodes = sqliteTable(
+	'login_codes',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		email: text('email').notNull(),
+		codeHash: text('code_hash').notNull(),
+		expiresAt: text('expires_at').notNull(),
+		consumedAt: text('consumed_at'),
+		createdAt: text('created_at').notNull()
+	},
+	(t) => [index('login_codes_email_idx').on(t.email)]
+);
+
 // Suggested by src/lib/crossings.ts, confirmed per-person by hand (task 4 /
 // BUILD_PLAN milestone 6). A crossing is only real once every person in
 // crossingParticipants has confirmed=true - see

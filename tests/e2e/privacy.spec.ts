@@ -9,14 +9,29 @@ test('a private draft entry 404s for a public viewer', async ({ page }) => {
 	expect(response?.status()).toBe(404);
 });
 
-test('a still-delayed public entry 404s for a public viewer', async ({ page }) => {
+// Milestone 5: a family-tier entry a public viewer isn't an approved
+// follower for shows a generic "followers only" prompt (200), not a flat
+// 404 - but it must carry none of the entry's own content. A still-delayed
+// public entry is included here too: family bypasses the publish delay
+// (by design, since family already knows where Lucas is), so it's
+// reachable at the 'family' tier the gate checks against, same as a true
+// family-only entry.
+test('a still-delayed public entry shows the followers-only prompt, not its own content, for a public viewer', async ({
+	page
+}) => {
 	const response = await page.goto('/en/lucas/still-settling-in');
-	expect(response?.status()).toBe(404);
+	expect(response?.status()).toBe(200);
+	await expect(page.locator('main h1')).not.toBeVisible();
+	await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Followers only');
+	expect(await page.locator('meta[property="og:description"]').count()).toBe(0);
 });
 
-test('a family-only entry 404s for a public viewer', async ({ page }) => {
+test('a family-only entry shows the followers-only prompt, not its own content, for a public viewer', async ({ page }) => {
 	const response = await page.goto('/en/lucas/remark-grocery-store');
-	expect(response?.status()).toBe(404);
+	expect(response?.status()).toBe(200);
+	await expect(page.locator('main h1')).not.toBeVisible();
+	await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Followers only');
+	expect(await page.locator('meta[property="og:description"]').count()).toBe(0);
 });
 
 test('the homepage never links to a private, delayed or family-only entry', async ({ page }) => {
@@ -63,12 +78,18 @@ test('the sitemap never includes a private, delayed or family-only entry URL, in
 	expect(xml).toContain('/da/lucas/leaving-copenhagen');
 });
 
-test('a 404d private/delayed/family entry carries no link-preview meta tags for it to leak through', async ({ page }) => {
-	for (const slug of ['private-draft-thoughts', 'still-settling-in', 'remark-grocery-store']) {
-		const response = await page.goto(`/en/lucas/${slug}`);
-		expect(response?.status()).toBe(404);
-		const ogTitle = await page.locator('meta[property="og:title"]').count();
-		expect(ogTitle).toBe(0);
+test('a private draft entry carries no link-preview meta tags for it to leak through', async ({ page }) => {
+	const response = await page.goto('/en/lucas/private-draft-thoughts');
+	expect(response?.status()).toBe(404);
+	const ogTitle = await page.locator('meta[property="og:title"]').count();
+	expect(ogTitle).toBe(0);
+});
+
+test('a gated (delayed/family) entry carries only the generic followers-only title, never its own', async ({ page }) => {
+	for (const slug of ['still-settling-in', 'remark-grocery-store']) {
+		await page.goto(`/en/lucas/${slug}`);
+		await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Followers only');
+		expect(await page.locator('meta[property="og:description"]').count()).toBe(0);
 	}
 });
 

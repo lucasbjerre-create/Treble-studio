@@ -1,0 +1,149 @@
+---
+import StudioLayout from '../../layouts/StudioLayout.astro';
+import { getDb } from '../../db/client';
+import { getPersonByEmail, listFollowersForPerson } from '../../db/queries';
+
+const db = getDb();
+const person = await getPersonByEmail(db, Astro.locals.accessEmail);
+if (!person) {
+	return new Response('No person record matches this account', { status: 403 });
+}
+
+const followers = await listFollowersForPerson(db, person.id);
+---
+
+<StudioLayout title="Followers">
+	<main class="studio">
+		<div class="top-row">
+			<h1>Followers</h1>
+			<a class="link" href="/studio">Entries</a>
+		</div>
+
+		{
+			followers.length === 0 ? (
+				<p>Nobody has asked to follow yet.</p>
+			) : (
+				<ul class="follower-list">
+					{followers.map((f) => (
+						<li data-id={f.id}>
+							<span class="email">{f.email}</span>
+							<span class="status" data-status={f.status}>
+								{f.status}
+							</span>
+							<span class="actions">
+								{f.status !== 'approved' && (
+									<button type="button" class="approve" data-id={f.id}>
+										Approve
+									</button>
+								)}
+								{f.status !== 'revoked' && (
+									<button type="button" class="revoke" data-id={f.id}>
+										Revoke
+									</button>
+								)}
+							</span>
+						</li>
+					))}
+				</ul>
+			)
+		}
+	</main>
+</StudioLayout>
+
+<script>
+	// Plain fetch on click rather than a React island - this page is just a
+	// list with two buttons per row, not worth the overhead.
+	document.querySelectorAll<HTMLButtonElement>('.approve, .revoke').forEach((button) => {
+		button.addEventListener('click', async () => {
+			const id = button.dataset.id;
+			const action = button.classList.contains('approve') ? 'approve' : 'revoke';
+			button.disabled = true;
+			try {
+				const res = await fetch(`/api/studio/followers/${id}/${action}`, { method: 'POST' });
+				if (res.ok) {
+					location.reload();
+				} else {
+					button.disabled = false;
+				}
+			} catch {
+				button.disabled = false;
+			}
+		});
+	});
+</script>
+
+<style>
+	.studio {
+		max-width: 40rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--grid-margin) var(--space-12);
+		font-family: var(--font-sans);
+	}
+
+	.top-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: var(--space-6);
+	}
+
+	h1 {
+		font-family: var(--font-serif);
+		font-size: var(--text-h2);
+		margin: 0;
+	}
+
+	.link {
+		color: var(--color-link);
+		font-size: var(--text-small);
+	}
+
+	.follower-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.follower-list li {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		min-height: var(--touch-min);
+		padding: var(--space-2) 0;
+		border-top: var(--border-hairline);
+	}
+
+	.email {
+		flex: 1;
+	}
+
+	.status {
+		font-size: var(--text-micro);
+		text-transform: uppercase;
+		color: var(--color-text-muted);
+	}
+
+	.status[data-status='approved'] {
+		color: var(--color-public);
+	}
+
+	.actions {
+		display: flex;
+		gap: var(--space-2);
+	}
+
+	.actions button {
+		min-height: 36px;
+		padding: 0 var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-xs);
+		background: var(--color-surface);
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.actions button:disabled {
+		color: var(--color-text-muted);
+		cursor: default;
+	}
+</style>

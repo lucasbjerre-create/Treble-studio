@@ -48,6 +48,20 @@ export interface Dictionary {
 		family: string;
 		private: string;
 	};
+	follow: {
+		gatedTitle: string;
+		gatedBody: string;
+		emailLabel: string;
+		emailPlaceholder: string;
+		requestButton: string;
+		requestSent: string;
+		codeLabel: string;
+		codePlaceholder: string;
+		verifyButton: string;
+		verifyError: string;
+		pending: string;
+		genericError: string;
+	};
 }
 
 export const en: Dictionary = {
@@ -97,5 +111,19 @@ export const en: Dictionary = {
 		public: 'Public',
 		family: 'Followers only',
 		private: 'Only me'
+	},
+	follow: {
+		gatedTitle: 'Followers only',
+		gatedBody: 'This one is for followers. Enter your email to ask to follow, or log in if you already do.',
+		emailLabel: 'Email',
+		emailPlaceholder: 'you@example.com',
+		requestButton: 'Send me a code',
+		requestSent: 'Check your email for a 6-digit code.',
+		codeLabel: 'Code',
+		codePlaceholder: '123456',
+		verifyButton: 'Log in',
+		verifyError: "That code didn't work - check it and try again.",
+		pending: "You're logged in. Your follow request is waiting on approval.",
+		genericError: 'Something went wrong - try again in a moment.'
 	}
 };
