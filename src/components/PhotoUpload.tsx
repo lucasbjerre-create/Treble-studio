@@ -1,6 +1,7 @@
 import exifr from 'exifr';
 import { useState } from 'react';
 import './PhotoUpload.css';
+import { resizeToWebp } from '../lib/media';
 
 export interface MediaItem {
 	id: number;
@@ -44,19 +45,6 @@ async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
 	return Array.from(new Uint8Array(digest))
 		.map((b) => b.toString(16).padStart(2, '0'))
 		.join('');
-}
-
-async function resizeToWebp(bitmap: ImageBitmap, maxWidth: number): Promise<Blob> {
-	const scale = Math.min(1, maxWidth / bitmap.width);
-	const width = Math.round(bitmap.width * scale);
-	const height = Math.round(bitmap.height * scale);
-	const canvas = new OffscreenCanvas(width, height);
-	const ctx = canvas.getContext('2d');
-	if (!ctx) throw new Error('Canvas not available');
-	ctx.drawImage(bitmap, 0, 0, width, height);
-	// Canvas re-encoding is the metadata-stripping step - a fresh WebP blob
-	// carries no EXIF by construction, nothing extra needed for that part.
-	return canvas.convertToBlob({ type: 'image/webp', quality: 0.85 });
 }
 
 /**

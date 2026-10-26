@@ -258,3 +258,35 @@
 		grid-template-columns: 1fr;
 	}
 }
+
+/* Matches src/components/VisibilityBadge.astro's styling - duplicated here
+   rather than shared, since Astro only scopes a component's <style> block to
+   elements it renders itself, never to markup a plain React component (this
+   file) builds with the same class names (the Logo bug in task 1's log). */
+.visibility-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	font-family: var(--font-sans);
+	font-size: var(--text-micro);
+	font-weight: var(--weight-semibold);
+	letter-spacing: var(--tracking-eyebrow);
+	text-transform: uppercase;
+	padding: var(--space-1) var(--space-2);
+	border-radius: var(--radius-pill);
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
+	line-height: 1;
+}
+
+.visibility-badge--public {
+	color: var(--color-public);
+}
+
+.visibility-badge--family {
+	color: var(--color-text-muted);
+}
+
+.visibility-badge--private {
+	color: var(--color-private);
+}

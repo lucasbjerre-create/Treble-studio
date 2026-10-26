@@ -126,3 +126,37 @@ Needs Lucas
 - No crossing has actually been confirmed yet (the `crossing_participants.confirmed` flow is schema + queries only, no studio UI to suggest/confirm one tonight) - `listStaysForCrossingSuggestions` + `suggestCrossings` together would surface Lucas's and Anna's Asheville weekend as a real suggestion once there's a studio screen to show and confirm it on.
 
 ---
+
+## Task 5. Studio parts that need no Cloudflare setup
+
+Status: partially done - several of this task's items were already built by prior milestone 4 work; what was genuinely left got mixed results tonight (one piece blocked by the permission system, one piece scoped down for time). Details below.
+
+Already done, verified rather than rebuilt:
+- EXIF read before anything else, orientation fix via `createImageBitmap(file, { imageOrientation: 'from-image' })`, resize to 480/1280/2048 in the browser, re-encode to WebP (`src/components/PhotoUpload.tsx`). Re-encoding is the metadata-stripping step - a canvas-drawn blob carries no EXIF by construction.
+- Cloudflare Access JWT verification with `jose` (`src/worker/auth.ts`), already tested with a locally-generated signing key (`tests/unit/auth.test.ts`, 7 tests: valid token, wrong audience, wrong issuer, expired, garbage input, missing email claim, no token at all).
+- Server-side rounding of public points by precision (`src/lib/precision.ts`), already tested (`tests/unit/precision.test.ts`, 5 tests).
+- The presigned-URL upload path (`src/worker/api/studio.ts`'s `/media/presign`, using `aws4fetch`) already returns 503 "R2 credentials are not configured yet" when `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` aren't set - already is the "mark it as needing R2 API credentials from Lucas" this task asks for.
+
+What I did:
+- Extracted the resize/re-encode step out of `PhotoUpload.tsx` into `src/lib/media.ts` (`resizeToWebp`, same logic, now independently testable) and added `tests/e2e/media-pipeline.spec.ts`: a hand-built JPEG fixture with real GPS EXIF (`tests/fixtures/gps-exif-sample.jpg`, 899 bytes, synthetic coordinates - not a real photo) run through the actual resize pipeline in a real browser, then checked for an EXIF chunk in the resulting WebP's RIFF container directly (the `exifr` library here throws rather than reporting "no GPS" for WebP, so the container is inspected by hand instead of trusting that library for this one assertion).
+- Added the visibility badge styling (word + colour, matching `src/components/VisibilityBadge.astro`) to the studio review panel's Audience row, replacing the raw `private`/`family`/`public` text.
+
+Blocked: the local-bypass piece of the Access middleware ("a local bypass works only when an explicit env variable is set, and that variable never appears in production config") was rejected by the session's own auto-mode security classifier as a "Security Weaken" action when I tried to add it to `src/worker/auth.ts`, even scoped to an explicit, documented, non-production-only env var. Per that system's own instructions I did not attempt a workaround - reverted the one already-applied half of the edit (an unused interface field) so the file matches HEAD exactly, and moved on. This also means I had no way to exercise `/studio` end-to-end in a browser tonight, since Access always fails closed without it.
+
+Scoped down for time, not attempted: the `UploadTarget` interface (local-dev-R2-binding implementation + the dev-only-route test proving it refuses outside local dev) and full bilingual studio labels. `src/worker/api/studio.ts` is also one of the files the other uncommitted session is mid-feature on, which would have meant another careful hand-built patch on top of an already-tight budget, and - see above - I couldn't have verified a new studio route live tonight regardless.
+
+Verified: `npm run check`, `npm run test` (93) and `npm run test:e2e` (13, the new media-pipeline test included) all pass.
+
+Needs Lucas
+- **The local Access bypass is still missing.** To test `/studio` locally before Cloudflare Access is configured, the pattern described in OVERNIGHT.md (check an explicit env var, e.g. `DEV_BYPASS_EMAIL`, in `verifyAccessRequest`/`AccessEnv` in `src/worker/auth.ts`, set only in a local `.dev.vars` - never in `wrangler.jsonc`) still needs to be added by hand; this session's permission system wouldn't let me make that specific edit tonight.
+- Cloudflare steps, once ready to actually test/deploy (none of this was run tonight - local only):
+  1. `wrangler login` if not already.
+  2. Create the real Access application for `/studio` on `treble.cordoza.dk`, restricted to Lucas's own email only (not "anyone with an email", not a domain-wide rule - spec section 9).
+  3. `wrangler secret put TEAM_DOMAIN` - the team domain Access gives the application (looks like `https://<team-name>.cloudflareaccess.com`).
+  4. `wrangler secret put POLICY_AUD` - the Application Audience (AUD) tag from that Access application's Overview tab.
+  5. Once R2 API credentials exist (Cloudflare dashboard -> R2 -> Manage API tokens -> create one scoped to the `exchange-site-media` bucket only): `wrangler secret put R2_ACCESS_KEY_ID` and `wrangler secret put R2_SECRET_ACCESS_KEY`. Until then, uploads stay unavailable in anything but local dev (the 503 above).
+  6. Test an unapproved email against the Access policy before trusting it (privacy.md's own rule) - this needs doing after every policy change, not just the first time.
+- `UploadTarget` interface + the dev-only local R2-binding upload route - not built tonight, see above.
+- Full Danish studio labels - the studio UI is still English-only; `EntryEditor.tsx`/`PhotoUpload.tsx` would need a `lang` prop threaded through and a studio-specific dictionary, same shape as the public site's `src/i18n/`.
+
+---

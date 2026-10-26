@@ -489,7 +489,11 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 					<h2>Review before publishing</h2>
 					<dl>
 						<dt>Audience</dt>
-						<dd>{audience}</dd>
+						<dd>
+							<span className={`visibility-badge visibility-badge--${audience === 'private' ? 'private' : audience}`}>
+								{audience === 'public' ? 'Public' : audience === 'family' ? 'Followers only' : 'Only me'}
+							</span>
+						</dd>
 						<dt>Precision</dt>
 						<dd>{selectedPlace?.precision ?? 'no place selected'}</dd>
 						<dt>Consent</dt>
