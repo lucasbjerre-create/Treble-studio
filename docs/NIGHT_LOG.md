@@ -160,3 +160,19 @@ Needs Lucas
 - Full Danish studio labels - the studio UI is still English-only; `EntryEditor.tsx`/`PhotoUpload.tsx` would need a `lang` prop threaded through and a studio-specific dictionary, same shape as the public site's `src/i18n/`.
 
 ---
+
+## Task 6. Pure ingest logic from milestone 7
+
+Status: done.
+
+Added `src/lib/ingest.ts`:
+- `groupIntoMoments`: splits a time-sorted list of captured items into moments on a gap of about two hours or a real change of place (spec section 8, step 4) - "real" meaning both sides already have a known place and it's actually different; an item with no place yet (no GPS) never itself forces a split, it just inherits whichever moment it lands in.
+- `proposeLegs`: proposes a leg whenever consecutive stops are in a different place, guessing `flight` over roughly 800km and `car` under it (spec section 8, step 3), using `@turf/distance` (pre-approved, already a dependency since task 3's trail arcs) for the great-circle distance rather than hand-rolling haversine. Staying in the same place proposes nothing, matching "moving around inside one city creates no legs."
+
+11 unit tests in `tests/unit/ingest.test.ts`, including the two-hour boundary (just under vs. over), a real place change within the time window, an unknown-place item not forcing a split, out-of-order input, and a longer sequence producing one leg per actual change.
+
+No UI, as scoped - a studio screen to actually show/confirm these suggestions is milestone 9 territory, not tonight.
+
+Verified: `npm run check` and `npm run test` (104 tests now) pass. Not a UI task, so `npm run test:e2e` wasn't re-run for this one specifically (it last passed, 13/13, at the end of task 5).
+
+---
