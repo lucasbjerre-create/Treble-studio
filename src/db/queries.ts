@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, getTableColumns, gt, inArray, isNull, lt, lte, or, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, gt, gte, inArray, isNull, lt, lte, or, type SQL } from 'drizzle-orm';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import * as schema from './schema';
 
@@ -261,4 +261,111 @@ export async function listLegsForViewer(
 	let query = db.select().from(schema.legs).$dynamic();
 	if (where) query = query.where(where);
 	return query.orderBy(asc(schema.legs.startsAt));
+}
+
+/**
+ * Raw material for suggesting crossings (src/lib/crossings.ts): one row per
+ * (trip, place that trip's entries actually touch). Studio-only - this is
+ * for the person reviewing suggestions, not a public/family read path, so it
+ * takes no viewer argument and returns everything.
+ */
+export async function listStaysForCrossingSuggestions(db: Database) {
+	const rows = await db
+		.selectDistinct({
+			personId: schema.trips.personId,
+			placeId: schema.entries.placeId,
+			startsOn: schema.trips.startsOn,
+			endsOn: schema.trips.endsOn
+		})
+		.from(schema.trips)
+		.innerJoin(schema.entries, eq(schema.entries.tripId, schema.trips.id));
+
+	return rows.filter((r): r is typeof r & { placeId: number; endsOn: string } => r.placeId !== null && r.endsOn !== null);
+}
+
+export interface ConfirmedCrossing {
+	id: number;
+	placeId: number;
+	startsOn: string;
+	endsOn: string;
+	personIds: number[];
+}
+
+/**
+ * Only crossings where every participant has confirmed - never an
+ * unconfirmed one, to any viewer tier. Confirmation is checked before any
+ * crossing row is even selected, not filtered out afterward, so there's no
+ * code path that builds a response containing one and then has to remember
+ * to strip it.
+ */
+export async function listConfirmedCrossingsForViewer(db: Database): Promise<ConfirmedCrossing[]> {
+	const participantRows = await db
+		.select({
+			crossingId: schema.crossingParticipants.crossingId,
+			personId: schema.crossingParticipants.personId,
+			confirmed: schema.crossingParticipants.confirmed
+		})
+		.from(schema.crossingParticipants);
+
+	const byCrossing = new Map<number, { personId: number; confirmed: boolean }[]>();
+	for (const row of participantRows) {
+		const list = byCrossing.get(row.crossingId) ?? [];
+		list.push({ personId: row.personId, confirmed: row.confirmed });
+		byCrossing.set(row.crossingId, list);
+	}
+
+	const confirmedIds = [...byCrossing.entries()]
+		.filter(([, participants]) => participants.length >= 2 && participants.every((p) => p.confirmed))
+		.map(([id]) => id);
+	if (confirmedIds.length === 0) return [];
+
+	const crossingRows = await db.select().from(schema.crossings).where(inArray(schema.crossings.id, confirmedIds));
+
+	return crossingRows.map((c) => ({
+		id: c.id,
+		placeId: c.placeId,
+		startsOn: c.startsOn,
+		endsOn: c.endsOn,
+		personIds: (byCrossing.get(c.id) ?? []).map((p) => p.personId)
+	}));
+}
+
+/**
+ * Each participant's own entries for a confirmed crossing, filtered by the
+ * same viewer-audience rule as everywhere else (entryVisibilityWhere) - a
+ * public viewer gets only the public, non-delayed entries from whichever
+ * participants have any, never a family or private entry from either person
+ * just because the crossing itself is confirmed.
+ */
+export async function listEntriesForCrossing(db: Database, viewer: Viewer, crossing: ConfirmedCrossing, now: string) {
+	const where = combine(
+		entryVisibilityWhere(viewer, now),
+		eq(schema.entries.placeId, crossing.placeId),
+		inArray(schema.entries.personId, crossing.personIds),
+		gte(schema.entries.occurredAt, `${crossing.startsOn}T00:00:00.000Z`),
+		lte(schema.entries.occurredAt, `${crossing.endsOn}T23:59:59.999Z`)
+	);
+
+	const columns = viewer === 'studio' ? getTableColumns(schema.entries) : publicEntryColumns;
+	let query = db.select(columns).from(schema.entries).$dynamic();
+	if (where) query = query.where(where);
+	return query.orderBy(asc(schema.entries.occurredAt));
+}
+
+/**
+ * Distinct people with at least one entry this viewer can see - the gate for
+ * the "Choose your TREBLEr" picker (task 4 / BUILD_PLAN milestone 6), which
+ * only appears once two or more people have a published entry the viewer can
+ * see; otherwise the homepage stays exactly as it was for one person.
+ */
+export async function listPeopleWithVisibleEntries(db: Database, viewer: Viewer, now: string) {
+	const where = entryVisibilityWhere(viewer, now);
+	const personIdRows = await db
+		.selectDistinct({ personId: schema.entries.personId })
+		.from(schema.entries)
+		.where(where);
+	const personIds = personIdRows.map((r) => r.personId);
+	if (personIds.length === 0) return [];
+
+	return db.select(publicPersonColumns).from(schema.people).where(inArray(schema.people.id, personIds));
 }

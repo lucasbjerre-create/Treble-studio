@@ -9,6 +9,7 @@ export interface Dictionary {
 		latestEntry: string;
 		currentChapter: string;
 		exploreMap: string;
+		chooseYourTrebler: string;
 	};
 	explore: {
 		title: string;
@@ -59,7 +60,8 @@ export const en: Dictionary = {
 	home: {
 		latestEntry: 'Latest entry',
 		currentChapter: 'Current chapter',
-		exploreMap: 'Explore map'
+		exploreMap: 'Explore map',
+		chooseYourTrebler: 'Choose your TREBLEr'
 	},
 	explore: {
 		title: 'Explore the route',

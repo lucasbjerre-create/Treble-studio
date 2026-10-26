@@ -321,3 +321,33 @@ export const mediaTexts = sqliteTable(
 	},
 	(t) => [primaryKey({ columns: [t.mediaId, t.lang] })]
 );
+
+// Suggested by src/lib/crossings.ts, confirmed per-person by hand (task 4 /
+// BUILD_PLAN milestone 6). A crossing is only real once every person in
+// crossingParticipants has confirmed=true - see
+// listConfirmedCrossingsForViewer in src/db/queries.ts, which never returns
+// an unconfirmed one to anybody but the people in it.
+export const crossings = sqliteTable('crossings', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	placeId: integer('place_id')
+		.notNull()
+		.references(() => places.id),
+	startsOn: text('starts_on').notNull(),
+	endsOn: text('ends_on').notNull(),
+	createdAt: text('created_at').notNull()
+});
+
+export const crossingParticipants = sqliteTable(
+	'crossing_participants',
+	{
+		crossingId: integer('crossing_id')
+			.notNull()
+			.references(() => crossings.id),
+		personId: integer('person_id')
+			.notNull()
+			.references(() => people.id),
+		confirmed: integer('confirmed', { mode: 'boolean' }).notNull().default(false),
+		confirmedAt: text('confirmed_at')
+	},
+	(t) => [primaryKey({ columns: [t.crossingId, t.personId] }), index('crossing_participants_person_id_idx').on(t.personId)]
+);

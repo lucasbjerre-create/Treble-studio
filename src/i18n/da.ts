@@ -10,7 +10,8 @@ export const da: Dictionary = {
 	home: {
 		latestEntry: 'Seneste indlæg',
 		currentChapter: 'Nuværende kapitel',
-		exploreMap: 'Udforsk kortet'
+		exploreMap: 'Udforsk kortet',
+		chooseYourTrebler: 'Vælg din TREBLEr'
 	},
 	explore: {
 		title: 'Udforsk ruten',

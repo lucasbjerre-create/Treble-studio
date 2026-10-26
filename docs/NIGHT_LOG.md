@@ -106,3 +106,23 @@ Needs Lucas
 - Entry markers and campus markers can still visually overlap at low/world-scale zoom when they're genuinely near the same coordinates (e.g. the Chapel Hill entry and the Chapel Hill campus tile) - clicking still works now (the campus tile no longer blocks it), but the entry marker underneath can be hard to see until the reader zooms in. Worth a closer look - maybe a small deliberate offset for campus tiles, or drawing entry markers above them.
 
 ---
+
+## Task 4. Group features, hidden until two people have published
+
+Status: done, with the map-marker piece scoped down (noted below).
+
+What I built
+- `src/lib/crossings.ts`: a pure `suggestCrossings(stays)` function per map-theme.json's crossing_rule - groups stays (person, place, date range) transitively by place, merging overlapping *and* consecutive-day stays into one crossing, and only when at least two distinct people are in the group. "Within 2km" from the kit is approximated as "same placeId" - this project's data model only has discrete place rows, not raw per-stay GPS, so that's the practical equivalent once stays are already at city/area precision. 7 unit tests, including the three-person transitive-overlap case and the "real gap means no crossing" case.
+- `crossings` and `crossing_participants` tables (`migrations/0004_crossings.sql`, local only), confirmation tracked per person. Added `listStaysForCrossingSuggestions` (studio-only, derives stays from trips joined to their entries' places - trips don't carry a place directly in the schema), `listConfirmedCrossingsForViewer` (only returns a crossing once *every* participant has confirmed - checked before any crossing row is even selected, not filtered out after), and `listEntriesForCrossing` (each participant's own entries for that crossing, run through the exact same `entryVisibilityWhere` audience filter as every other entry query).
+- Privacy tests (`tests/privacy/crossings.test.ts`): a crossing with one unconfirmed participant never comes back from `listConfirmedCrossingsForViewer`, for any viewer; and for a confirmed crossing, a public viewer sees only the participant whose entry in that window is actually public, never the other participant's family-only entry just because the crossing itself is confirmed.
+- Home screen "Choose your TREBLEr" / "Vælg din TREBLEr" picker (`src/pages/[lang]/index.astro`): `listPeopleWithVisibleEntries` gates it on two or more people actually having a visible entry - with tonight's fixtures (Anna has two public entries) it now shows both Lucas and Anna as seat-coloured initials circles linking to each person's own `/explore`. Confirmed in the browser it's invisible otherwise (single-person case untouched) and correct here.
+
+Scoped down: "confirmed crossings get the crossing marker on the map, opening one shows each person's entries" (the map-visual half of this task) - not built tonight. The data layer it depends on (confirmed-only, per-person-audience-filtered) is done and tested above, but wiring an actual marker/popover into `TimelineExplorer.tsx` on top of a brand new table with no confirmed rows yet in the fixtures felt like more UI than I could build *and* actually verify visually in the time left, especially right after task 3's map work. Noted under Needs Lucas.
+
+Verified: `npm run check`, `npm run test` (93 tests now) and `npm run test:e2e` (12/12) all pass. Checked the picker directly in the browser - both circles render with the right seat colours and link to the right person.
+
+Needs Lucas
+- The crossing map marker + per-crossing popover (map-theme.json's "pill with bars" marker shape) is still to build, on top of the query layer above.
+- No crossing has actually been confirmed yet (the `crossing_participants.confirmed` flow is schema + queries only, no studio UI to suggest/confirm one tonight) - `listStaysForCrossingSuggestions` + `suggestCrossings` together would surface Lucas's and Anna's Asheville weekend as a real suggestion once there's a studio screen to show and confirm it on.
+
+---

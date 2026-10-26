@@ -7,11 +7,13 @@ import {
 	getPersonBySlug,
 	listChaptersForPerson,
 	listEntriesForViewer,
-	listMediaForEntry
+	listMediaForEntry,
+	listPeopleWithVisibleEntries
 } from '../../db/queries';
 import { PRIMARY_PERSON_SLUG } from '../../config/site';
 import { isLocale, t, type Locale } from '../../i18n/t';
 import { currentChapter } from '../../lib/chapters';
+import { initialsFor } from '../../lib/initials';
 import { resolveEntryText } from '../../lib/translation';
 
 const { lang: rawLang } = Astro.params;
@@ -50,6 +52,12 @@ if (latest) {
 	resolvedDek = resolved.dek;
 	media = await listMediaForEntry(db, 'public', latest.id, now);
 }
+
+// Hidden until two or more people have a published entry this viewer can
+// see (OVERNIGHT.md task 4) - before that, the homepage stays exactly as it
+// was for one person, no picker at all.
+const peopleWithEntries = await listPeopleWithVisibleEntries(db, 'public', now);
+const showTreblerPicker = peopleWithEntries.length >= 2;
 ---
 
 <BaseLayout lang={lang} title={dict.siteTitle}>
@@ -96,6 +104,26 @@ if (latest) {
 		}
 
 		<p class="explore-map"><a href={`/${lang}/explore`}>{dict.home.exploreMap}</a></p>
+
+		{
+			showTreblerPicker && (
+				<section class="trebler-picker">
+					<p class="eyebrow">{dict.home.chooseYourTrebler}</p>
+					<ul class="trebler-list">
+						{peopleWithEntries.map((p) => (
+							<li>
+								<a class="trebler-link" href={`/${lang}/${p.slug}/explore`}>
+									<span class="trebler-avatar" data-seat={p.seat ?? undefined}>
+										{initialsFor(p.displayName)}
+									</span>
+									<span class="trebler-name">{p.displayName}</span>
+								</a>
+							</li>
+						))}
+					</ul>
+				</section>
+			)
+		}
 	</main>
 </BaseLayout>
 
@@ -153,5 +181,55 @@ if (latest) {
 
 	.muted {
 		color: var(--color-text-muted);
+	}
+
+	.trebler-picker {
+		margin-top: var(--space-12);
+		padding-top: var(--space-6);
+		border-top: var(--border-hairline);
+	}
+
+	.trebler-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-4);
+		list-style: none;
+		margin: var(--space-2) 0 0;
+		padding: 0;
+	}
+
+	.trebler-link {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-2);
+		width: 5.5rem;
+		text-decoration: none;
+		color: var(--color-text);
+		min-height: var(--touch-min);
+	}
+
+	.trebler-avatar {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: var(--radius-pill);
+		background: var(--scholar, var(--color-text-muted));
+		color: var(--scholar-text, var(--color-on-primary));
+		font-family: var(--font-sans);
+		font-size: var(--text-small);
+		font-weight: var(--weight-semibold);
+	}
+
+	.trebler-name {
+		font-family: var(--font-sans);
+		font-size: var(--text-small);
+		text-align: center;
+	}
+
+	.trebler-link:hover .trebler-name {
+		color: var(--color-link);
 	}
 </style>
