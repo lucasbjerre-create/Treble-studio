@@ -176,3 +176,16 @@ No UI, as scoped - a studio screen to actually show/confirm these suggestions is
 Verified: `npm run check` and `npm run test` (104 tests now) pass. Not a UI task, so `npm run test:e2e` wasn't re-run for this one specifically (it last passed, 13/13, at the end of task 5).
 
 ---
+
+## Task 7. RSS
+
+Status: done.
+
+- `src/pages/[lang]/rss.xml.ts`: an RSS 2.0 feed per language, public entries only (the same `listEntriesForViewer(db, 'public', now, ...)` every public page already uses, not a separate filter that could drift from it), title/link/guid/pubDate/description per entry, resolved through the same translation fallback as the pages themselves.
+- `src/pages/sitemap.xml.ts`: one sitemap covering both languages' static pages and public entries only.
+- Link-preview meta tags: `BaseLayout.astro` gained `description`/`canonicalPath` props -> og:title/og:description/og:url/og:type, twitter:card/title/description, and a canonical link; `[slug].astro` passes the entry's own resolved dek and URL. Added an RSS `<link rel="alternate">` for feed discovery while I was in there.
+- Privacy tests (extended `tests/e2e/privacy.spec.ts` rather than a new file, since it's the same fixture and the same "never appears" assertions already live there): the RSS feed and sitemap never mention any of the three ineligible seed entries (private draft, still-delayed, family-only) in either language; a 404'd entry carries no og:title at all for anything to leak through; and an eligible entry's og:description is checked against a lat/lon-shaped pattern to catch a coordinate ever ending up in a link preview by accident.
+
+Verified: `npm run check`, `npm run test` (104) and `npm run test:e2e` (17, the 7 new ones here included) all pass. Manually checked `/en/rss.xml` and `/sitemap.xml` against the dev server too - both list exactly the two genuinely public seed entries, nothing else.
+
+---

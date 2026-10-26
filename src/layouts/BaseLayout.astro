@@ -9,13 +9,18 @@ interface Props {
 	title: string;
 	/** Path (with any query string) for this same page in the other language. Defaults to that language's homepage. */
 	altPath?: string;
+	/** Link-preview description (og:description/twitter:description). Keep this to a public-safe dek/summary - never raw body text, never coordinates (privacy.md). */
+	description?: string;
+	/** This page's own path (e.g. `/en/lucas/weekend-in-asheville`), for og:url and the RSS/sitemap canonical link. Defaults to no og:url (the homepage doesn't need one). */
+	canonicalPath?: string;
 }
 
-const { lang, title, altPath } = Astro.props;
+const { lang, title, altPath, description, canonicalPath } = Astro.props;
 const dict = t(lang);
 const otherLang: Locale = lang === 'en' ? 'da' : 'en';
 const otherLangHref = altPath ?? `/${otherLang}/`;
 const year = new Date().getFullYear();
+const canonicalUrl = canonicalPath ? `${SITE_URL}${canonicalPath}` : undefined;
 ---
 
 <!doctype html>
@@ -27,6 +32,15 @@ const year = new Date().getFullYear();
 		<link rel="icon" href="/favicon.ico" sizes="48x48" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<meta property="og:image" content={`${SITE_URL}/og-image.png`} />
+		<meta property="og:title" content={title} />
+		<meta property="og:type" content="website" />
+		{description && <meta property="og:description" content={description} />}
+		{canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+		{canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		{description && <meta name="twitter:description" content={description} />}
+		<link rel="alternate" type="application/rss+xml" title={dict.siteTitle} href={`/${lang}/rss.xml`} />
 		<meta name="theme-color" content="#F4F2ED" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#10142A" media="(prefers-color-scheme: dark)" />
 		<title>{title}</title>

@@ -51,7 +51,13 @@ const entryForDisplay = {
 const composition = compositionForFormat(entry.format);
 ---
 
-<BaseLayout lang={lang} title={resolved.title} altPath={`/${otherLang}/${personSlug}/${slug}`}>
+<BaseLayout
+	lang={lang}
+	title={resolved.title}
+	altPath={`/${otherLang}/${personSlug}/${slug}`}
+	description={resolved.dek ?? undefined}
+	canonicalPath={`/${lang}/${personSlug}/${slug}`}
+>
 	<main class="entry-page">
 		{composition === 'short_dispatch' && <ShortDispatch entry={entryForDisplay} media={media} />}
 		{composition === 'standard_story' && <StandardStory entry={entryForDisplay} media={media} />}
