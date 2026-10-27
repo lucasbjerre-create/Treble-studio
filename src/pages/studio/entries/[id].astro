@@ -2,7 +2,13 @@
 import EntryEditor from '../../../components/EntryEditor';
 import StudioLayout from '../../../layouts/StudioLayout.astro';
 import { getDb } from '../../../db/client';
-import { getEntryById, getPersonByEmail, listChaptersForPerson, listMediaForEntry } from '../../../db/queries';
+import {
+	getEntryById,
+	getPersonByEmail,
+	listChaptersForPerson,
+	listMediaForEntry,
+	listPeopleTagsForMedia
+} from '../../../db/queries';
 
 const id = Number(Astro.params.id);
 if (!Number.isInteger(id)) {
@@ -23,6 +29,10 @@ if (!entry || entry.personId !== person.id) {
 const now = new Date().toISOString();
 const chapters = await listChaptersForPerson(db, person.id);
 const media = await listMediaForEntry(db, 'studio', id, now);
+const peopleTags = await listPeopleTagsForMedia(
+	db,
+	media.map((m) => m.id)
+);
 ---
 
 <StudioLayout title={entry.title}>
@@ -46,7 +56,16 @@ const media = await listMediaForEntry(db, 'studio', id, now);
 				consentStatus: entry.consentStatus,
 				status: entry.status
 			}}
-			initialMedia={media.map((m) => ({ id: m.id, keyThumb: m.keyThumb, caption: m.caption, capturedAt: m.capturedAt }))}
+			initialMedia={media.map((m) => ({
+				id: m.id,
+				keyThumb: m.keyThumb,
+				keyDisplay: m.keyDisplay,
+				caption: m.caption,
+				capturedAt: m.capturedAt,
+				people: peopleTags
+					.filter((p) => p.mediaId === m.id)
+					.map((p) => ({ id: p.id, name: p.name, boxX: p.boxX, boxY: p.boxY, boxW: p.boxW, boxH: p.boxH }))
+			}))}
 		/>
 	</main>
 </StudioLayout>

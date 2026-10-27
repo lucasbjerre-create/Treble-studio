@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './PhotoUpload.css';
 import { readPhotoMetadata, uploadPhotoToEntry, type PhotoGpsHint } from '../lib/mediaUpload';
+import PhotoPeopleTags, { type PersonTag } from './PhotoPeopleTags';
 
 export interface MediaItem {
 	id: number;
 	keyThumb: string | null;
+	keyDisplay: string | null;
 	caption: string | null;
 	capturedAt: string | null;
+	people: PersonTag[];
 }
 
-export type { PhotoGpsHint };
+export type { PersonTag, PhotoGpsHint };
 
 interface Props {
 	entryId: number | null;
@@ -19,6 +22,7 @@ interface Props {
 	/** gps is this photo's own EXIF coordinates (not persisted as separate media columns, only inside exifJson), for auto-detecting a place. */
 	onUploaded: (item: MediaItem, gps: PhotoGpsHint) => void;
 	onRemoved: (id: number) => void;
+	onPeopleChanged: (mediaId: number, people: PersonTag[]) => void;
 }
 
 type FileStatus =
@@ -39,9 +43,19 @@ interface InFlightFile {
  * do not run out of memory"), each with its own progress/retry - a failed
  * file never blocks the others or the already-saved draft.
  */
-export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded, onRemoved }: Props) {
+export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded, onRemoved, onPeopleChanged }: Props) {
 	const [inFlight, setInFlight] = useState<InFlightFile[]>([]);
 	const [removingId, setRemovingId] = useState<number | null>(null);
+	// Autocomplete source for the people tagger below, loaded once per
+	// session rather than per photo.
+	const [knownNames, setKnownNames] = useState<string[]>([]);
+
+	useEffect(() => {
+		fetch('/api/studio/people-names')
+			.then((r) => (r.ok ? r.json() : []))
+			.then((names) => setKnownNames(names as string[]))
+			.catch(() => undefined);
+	}, []);
 
 	async function removePhoto(id: number) {
 		setRemovingId(id);
@@ -78,7 +92,7 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded,
 			const { media, gps } = await uploadPhotoToEntry(file, id, metadata, setStatus);
 
 			setStatus({ phase: 'done' });
-			onUploaded(media, gps);
+			onUploaded({ ...media, people: [] }, gps);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Upload failed';
 			setStatus({ phase: 'error', message, retry: () => processAndUpload(file, key) });
@@ -126,6 +140,7 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded,
 							<button type="button" className="remove" onClick={() => removePhoto(m.id)} disabled={removingId === m.id}>
 								{removingId === m.id ? '…' : '✕'}
 							</button>
+							<PhotoPeopleTags media={m} knownNames={knownNames} onChange={(people) => onPeopleChanged(m.id, people)} />
 						</li>
 					))}
 				</ul>

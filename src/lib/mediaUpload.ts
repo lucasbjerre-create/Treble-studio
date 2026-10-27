@@ -22,6 +22,7 @@ export interface PhotoMetadata {
 export interface UploadedMedia {
 	id: number;
 	keyThumb: string | null;
+	keyDisplay: string | null;
 	caption: string | null;
 	capturedAt: string | null;
 }

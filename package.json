@@ -25,6 +25,7 @@
     "@fontsource-variable/source-serif-4": "^5.3.1",
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/schibsted-grotesk": "^5.3.0",
+    "@mediapipe/tasks-vision": "^1.1.1",
     "@turf/distance": "^7.4.0",
     "@turf/great-circle": "^7.4.0",
     "@types/react": "^19.3.0",
@@ -39,6 +40,7 @@
     "pica": "^10.0.3",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "tz-lookup": "^6.1.25",
     "wrangler": "^4.152.0",
     "zod": "^4.6.7"
   },
@@ -47,6 +49,7 @@
     "@cloudflare/vitest-plugin": "^1.4.7",
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
+    "@types/tz-lookup": "^6.1.2",
     "drizzle-kit": "^0.31.11",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"

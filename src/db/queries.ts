@@ -74,6 +74,28 @@ export async function listEntriesForViewer(
 }
 
 /**
+ * Just the columns the studio entries list (and its delete UI) needs,
+ * including created_at - studio-only by construction (filtered to one
+ * person, no audience/status filter), so this doesn't go through
+ * listEntriesForViewer's viewer-dependent column set, whose inferred type
+ * only ever carries publicEntryColumns's fields regardless of which branch
+ * actually runs.
+ */
+export async function listEntrySummariesForPerson(db: Database, personId: number) {
+	return db
+		.select({
+			id: schema.entries.id,
+			title: schema.entries.title,
+			status: schema.entries.status,
+			occurredAt: schema.entries.occurredAt,
+			createdAt: schema.entries.createdAt
+		})
+		.from(schema.entries)
+		.where(eq(schema.entries.personId, personId))
+		.orderBy(desc(schema.entries.occurredAt));
+}
+
+/**
  * Previous and next entry by occurred_at, within the same viewer-visible set
  * for one person. Used for the entry page's prev/next links.
  */
@@ -201,6 +223,30 @@ export async function findMediaBySha256ForOwner(db: Database, ownerId: number, s
 		.where(and(eq(schema.media.ownerId, ownerId), eq(schema.media.sha256, sha256)))
 		.limit(1);
 	return rows[0];
+}
+
+/**
+ * Studio-only, like findMediaBySha256ForOwner above: media_people is never
+ * selected for a public/family viewer anywhere, so there's no viewer
+ * argument to get wrong here.
+ */
+export async function listPeopleTagsForMedia(db: Database, mediaIds: number[]) {
+	if (mediaIds.length === 0) return [];
+	return db.select().from(schema.mediaPeople).where(inArray(schema.mediaPeople.mediaId, mediaIds));
+}
+
+// Autocomplete source for the "type a name" box - every name this person has
+// ever typed on one of their own photos, deduplicated. Free text, not a
+// roster table: a new name is simply one nothing here has returned yet.
+export async function listPeopleNamesForPerson(db: Database, personId: number) {
+	const rows = await db
+		.select({ name: schema.mediaPeople.name })
+		.from(schema.mediaPeople)
+		.innerJoin(schema.media, eq(schema.mediaPeople.mediaId, schema.media.id))
+		.where(eq(schema.media.ownerId, personId))
+		.groupBy(schema.mediaPeople.name)
+		.orderBy(asc(schema.mediaPeople.name));
+	return rows.map((r) => r.name);
 }
 
 // The privacy-critical exclusion: lat_private/lon_private never selected for

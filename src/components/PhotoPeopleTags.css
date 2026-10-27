@@ -1,0 +1,133 @@
+.photo-people-tags {
+	width: 100%;
+	margin-top: var(--space-1);
+}
+
+.photo-people-tags .link-button {
+	grid-column: auto;
+	min-height: var(--touch-min);
+	background: none;
+	border: none;
+	color: var(--color-link);
+	cursor: pointer;
+	padding: 0;
+	font-family: var(--font-sans);
+	font-size: var(--text-micro);
+}
+
+.people-tagger {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	margin-top: var(--space-2);
+	padding: var(--space-3);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	width: min(100%, 22rem);
+}
+
+.people-tagger-toolbar {
+	display: flex;
+	gap: var(--space-2);
+	flex-wrap: wrap;
+}
+
+.people-tagger-toolbar button {
+	min-height: var(--touch-min);
+	padding: 0 var(--space-3);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-pill);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-small);
+	cursor: pointer;
+}
+
+.people-tagger-toolbar button.active {
+	background: var(--color-primary);
+	border-color: var(--color-primary);
+	color: var(--color-on-primary);
+}
+
+.people-tagger-toolbar button:disabled {
+	color: var(--color-text-muted);
+	cursor: default;
+}
+
+.people-tagger-image {
+	position: relative;
+	width: 100%;
+	line-height: 0;
+	touch-action: none;
+	cursor: crosshair;
+}
+
+.people-tagger-image img {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.face-box {
+	position: absolute;
+	overflow: visible;
+	box-sizing: border-box;
+}
+
+.face-box--named,
+.face-box--pending {
+	border: 2px solid var(--color-primary);
+	border-radius: var(--radius-xs);
+}
+
+.face-box--pending {
+	min-width: var(--touch-min);
+	min-height: var(--touch-min);
+	background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+	color: var(--color-on-primary);
+	font-size: var(--text-body);
+	line-height: 1;
+	padding: 0;
+	cursor: pointer;
+}
+
+.face-box--drawing {
+	border: 2px dashed var(--color-primary);
+	background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+	pointer-events: none;
+}
+
+.face-chip {
+	position: absolute;
+	top: 0;
+	left: 0;
+	transform: translateY(-100%);
+	min-height: 28px;
+	padding: 0 var(--space-2);
+	white-space: nowrap;
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+	border: none;
+	border-radius: var(--radius-xs);
+	font-family: var(--font-sans);
+	font-size: var(--text-micro);
+	cursor: pointer;
+}
+
+.face-name-form {
+	position: absolute;
+	z-index: 1;
+}
+
+.face-name-form input {
+	min-width: 9rem;
+	min-height: var(--touch-min);
+	padding: 0 var(--space-2);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-xs);
+	background: var(--color-surface);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+}
