@@ -3,6 +3,7 @@ import './BulkUpload.css';
 import { DEFAULT_AUDIENCE } from '../config/site';
 import { findOrCreatePlaceFromGps, type PlaceLike } from '../lib/placeFromGps';
 import { readPhotoMetadata, uploadPhotoToEntry, type PhotoMetadata, type UploadProgress } from '../lib/mediaUpload';
+import { timezoneFromGps } from '../lib/timezoneFromGps';
 
 type FilePhase =
 	| { phase: 'reading' }
@@ -118,7 +119,15 @@ export default function BulkUpload() {
 						dek: null,
 						bodyMd: null,
 						occurredAt,
-						timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+						// From the photo's own GPS, not this phone's clock - a Danish
+						// phone travelling in the US must not tag a Danish photo as US
+						// time. Falls back to the phone's timezone only when the photo
+						// carries no GPS at all.
+						timezone:
+							timezoneFromGps({
+								latitude: metadata.gps?.latitude ?? null,
+								longitude: metadata.gps?.longitude ?? null
+							}) ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
 						consentStatus: 'not_needed'
 					})
 				});

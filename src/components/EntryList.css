@@ -1,0 +1,143 @@
+.entry-list-wrap {
+	font-family: var(--font-sans);
+}
+
+.bulk-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	margin-bottom: var(--space-3);
+}
+
+.select-all {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: var(--text-small);
+	color: var(--color-text-muted);
+	min-height: var(--touch-min);
+}
+
+.bulk-bar button {
+	min-height: var(--touch-min);
+	padding: 0 var(--space-4);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-xs);
+	background: var(--color-surface);
+	color: var(--color-text);
+}
+
+.bulk-bar button:disabled {
+	color: var(--color-text-muted);
+	cursor: not-allowed;
+}
+
+.entry-list-wrap .error {
+	color: var(--color-error);
+	font-size: var(--text-small);
+}
+
+.entry-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.entry-list li {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-3);
+	min-height: var(--touch-min);
+	padding: var(--space-2) 0;
+	border-top: var(--border-hairline);
+}
+
+.entry-list input[type='checkbox'] {
+	/* Stays aligned with the title's first line even once the row below wraps
+	   onto two lines at narrow widths. */
+	margin-top: 0.4rem;
+}
+
+.select-all input[type='checkbox'],
+.entry-list input[type='checkbox'] {
+	width: 1.25rem;
+	height: 1.25rem;
+	flex: none;
+	margin: 0;
+	accent-color: var(--color-primary);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-xs);
+}
+
+.entry-list a {
+	flex: 1;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	row-gap: var(--space-1);
+	column-gap: var(--space-3);
+	min-width: 0;
+	color: var(--color-text);
+	text-decoration: none;
+}
+
+.status {
+	order: 1;
+	font-size: var(--text-micro);
+	text-transform: uppercase;
+	color: var(--color-text-muted);
+	min-width: 4.5rem;
+}
+
+.status[data-status='published'] {
+	color: var(--color-public);
+}
+
+.title {
+	order: 2;
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.date {
+	order: 3;
+	font-size: var(--text-small);
+	color: var(--color-text-muted);
+}
+
+.expiry {
+	order: 4;
+	font-size: var(--text-micro);
+	color: var(--color-text-muted);
+	white-space: nowrap;
+}
+
+/* Below this, a draft's status + date + expiry no longer fit on the title's
+   line without squeezing it down to nothing (the actual bug: "Private draft
+   thoughts" rendered invisible at 375px). Title gets the first line to
+   itself; everything else drops to a second line underneath it. */
+@media (max-width: 480px) {
+	.title {
+		order: 0;
+		flex: 1 1 100%;
+	}
+}
+
+.delete-one {
+	flex: none;
+	width: var(--touch-min);
+	height: var(--touch-min);
+	border: none;
+	background: transparent;
+	color: var(--color-error);
+	font-size: var(--text-small);
+}
+
+.delete-one:disabled {
+	color: var(--color-text-muted);
+	cursor: not-allowed;
+}
