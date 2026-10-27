@@ -92,3 +92,62 @@
 	padding: 0 var(--space-3);
 	cursor: pointer;
 }
+
+.bulk-primary {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding-top: var(--space-3);
+	border-top: var(--border-hairline);
+}
+
+.bulk-primary .hint {
+	max-width: none;
+}
+
+.upload-progress-ring {
+	position: fixed;
+	right: var(--space-4);
+	bottom: var(--space-4);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border-radius: var(--radius-pill);
+	background: var(--color-surface);
+	border: var(--border-hairline);
+	box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
+	z-index: 10;
+}
+
+.upload-progress-ring svg {
+	position: absolute;
+	transform: rotate(-90deg);
+}
+
+.upload-progress-ring .ring-track {
+	fill: none;
+	stroke: var(--color-border);
+	stroke-width: 3;
+}
+
+.upload-progress-ring .ring-fill {
+	fill: none;
+	stroke: var(--color-primary);
+	stroke-width: 3;
+	stroke-linecap: round;
+	transition: stroke-dashoffset 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.upload-progress-ring .ring-fill {
+		transition: none;
+	}
+}
+
+.upload-progress-ring .ring-label {
+	position: relative;
+	font-size: 0.6rem;
+	color: var(--color-text-muted);
+}

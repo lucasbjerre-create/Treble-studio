@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import './BulkUpload.css';
 import { DEFAULT_AUDIENCE } from '../config/site';
+import EntryEditor, { type InitialEntry } from './EntryEditor';
 import { findOrCreatePlaceFromGps, type PlaceLike } from '../lib/placeFromGps';
-import { readPhotoMetadata, uploadPhotoToEntry, type PhotoMetadata, type UploadProgress } from '../lib/mediaUpload';
+import {
+	readPhotoMetadata,
+	uploadPhotoToEntry,
+	type PhotoMetadata,
+	type UploadedMedia,
+	type UploadProgress
+} from '../lib/mediaUpload';
 import { timezoneFromGps } from '../lib/timezoneFromGps';
+import type { MediaItem } from './PhotoUpload';
 
 type FilePhase =
 	| { phase: 'reading' }
@@ -26,24 +34,71 @@ interface FileRow {
 interface FileProgress {
 	entryId: number;
 	occurredAt: string;
+	timezone: string;
 	metadata: PhotoMetadata;
+}
+
+type ProcessResult =
+	| { status: 'duplicate'; entryId: number }
+	| { status: 'error' }
+	| { status: 'done'; entryId: number; occurredAt: string; timezone: string; placeId: number | null; media: UploadedMedia };
+
+/** The first photo to finish, opened for writing immediately while the rest of the batch keeps uploading behind it. */
+interface PrimaryDraft {
+	key: string;
+	initialEntry: InitialEntry;
+	initialMedia: MediaItem[];
+}
+
+const RING_RADIUS = 15;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+/** Small fixed corner indicator for the background uploads still running once the first draft is already open. */
+function BackgroundProgressRing({ done, total }: { done: number; total: number }) {
+	const fraction = total > 0 ? done / total : 0;
+	const offset = RING_CIRCUMFERENCE * (1 - fraction);
+	return (
+		<div className="upload-progress-ring" role="status" aria-label={`${done} of ${total} more photos uploaded`}>
+			<svg width="36" height="36" viewBox="0 0 36 36">
+				<circle className="ring-track" cx="18" cy="18" r={RING_RADIUS} />
+				<circle
+					className="ring-fill"
+					cx="18"
+					cy="18"
+					r={RING_RADIUS}
+					style={{ strokeDasharray: RING_CIRCUMFERENCE, strokeDashoffset: offset }}
+				/>
+			</svg>
+			<span className="ring-label">
+				{done}/{total}
+			</span>
+		</div>
+	);
 }
 
 /**
  * Select several photos at once; each becomes its own draft entry, prefilled
- * from that photo's own EXIF date and place, ready to finish individually in
- * the normal entry editor. This is deliberately NOT BUILD_PLAN.md's
- * Milestone 9 ("Smart ingest") - no day/moment grouping, no route legs, no
- * story assembly, one photo always means one entry.
+ * from that photo's own EXIF date and place. The first one to finish opens
+ * for writing right away - the rest upload behind it one at a time
+ * (studio.md), shown only as a small corner progress ring, so Lucas is never
+ * stuck watching a list instead of writing. This is deliberately NOT
+ * BUILD_PLAN.md's Milestone 9 ("Smart ingest") - no day/moment grouping, no
+ * route legs, no story assembly, one photo always means one entry.
  */
 export default function BulkUpload() {
 	const [rows, setRows] = useState<FileRow[]>([]);
 	const [places, setPlaces] = useState<PlaceLike[]>([]);
 	const [placesLoaded, setPlacesLoaded] = useState(false);
 	const [processing, setProcessing] = useState(false);
+	const [primary, setPrimary] = useState<PrimaryDraft | null>(null);
 
 	const progressByKey = useRef(new Map<string, FileProgress>());
 	const objectUrls = useRef<string[]>([]);
+	// A ref, not state: handleFiles reads this synchronously across await
+	// points within one loop (and across separate picks), where a state
+	// value would still read stale - only the first successful file of the
+	// whole session should ever become the open draft.
+	const primaryAssigned = useRef(false);
 
 	useEffect(
 		() => () => {
@@ -67,15 +122,16 @@ export default function BulkUpload() {
 		setRows((prev) => prev.map((r) => (r.key === key ? { ...r, phase } : r)));
 	}
 
-	async function processFile(file: File, key: string) {
+	async function processFile(file: File, key: string): Promise<ProcessResult> {
 		try {
 			const saved = progressByKey.current.get(key);
 			let entryId: number;
 			let occurredAt: string;
+			let timezone: string;
 			let metadata: PhotoMetadata;
 
 			if (saved) {
-				({ entryId, occurredAt, metadata } = saved);
+				({ entryId, occurredAt, timezone, metadata } = saved);
 			} else {
 				setPhase(key, { phase: 'reading' });
 				// Read EXIF and hash before anything else touches the file (studio.md).
@@ -94,13 +150,20 @@ export default function BulkUpload() {
 				}
 				if (duplicateEntryId !== undefined) {
 					setPhase(key, { phase: 'duplicate', entryId: duplicateEntryId });
-					return;
+					return { status: 'duplicate', entryId: duplicateEntryId };
 				}
 
 				setPhase(key, { phase: 'creating' });
 				occurredAt = metadata.exif?.DateTimeOriginal
 					? new Date(metadata.exif.DateTimeOriginal as string | number | Date).toISOString()
 					: new Date().toISOString();
+				// From the photo's own GPS, not this phone's clock - a Danish
+				// phone travelling in the US must not tag a Danish photo as US
+				// time. Falls back to the phone's timezone only when the photo
+				// carries no GPS at all.
+				timezone =
+					timezoneFromGps({ latitude: metadata.gps?.latitude ?? null, longitude: metadata.gps?.longitude ?? null }) ??
+					Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 				const entryRes = await fetch('/api/studio/entries', {
 					method: 'POST',
@@ -119,34 +182,27 @@ export default function BulkUpload() {
 						dek: null,
 						bodyMd: null,
 						occurredAt,
-						// From the photo's own GPS, not this phone's clock - a Danish
-						// phone travelling in the US must not tag a Danish photo as US
-						// time. Falls back to the phone's timezone only when the photo
-						// carries no GPS at all.
-						timezone:
-							timezoneFromGps({
-								latitude: metadata.gps?.latitude ?? null,
-								longitude: metadata.gps?.longitude ?? null
-							}) ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+						timezone,
 						consentStatus: 'not_needed'
 					})
 				});
 				if (!entryRes.ok) throw new Error('Could not create a draft entry');
 				({ id: entryId } = (await entryRes.json()) as { id: number });
 
-				progressByKey.current.set(key, { entryId, occurredAt, metadata });
+				progressByKey.current.set(key, { entryId, occurredAt, timezone, metadata });
 			}
 
-			await uploadPhotoToEntry(file, entryId, metadata, (status) => setPhase(key, status));
+			const { media, gps } = await uploadPhotoToEntry(file, entryId, metadata, (status) => setPhase(key, status));
 
 			setPhase(key, { phase: 'placing' });
 			const currentPlaces = await ensurePlacesLoaded();
-			const gps = { latitude: metadata.gps?.latitude ?? null, longitude: metadata.gps?.longitude ?? null };
 			const place = await findOrCreatePlaceFromGps(gps, currentPlaces);
 			let placeLabel: string | null = null;
+			let placeId: number | null = null;
 			if (place) {
 				setPlaces((prev) => (prev.some((p) => p.id === place.id) ? prev : [...prev, place]));
 				placeLabel = place.label;
+				placeId = place.id;
 				// Best-effort too - a dropped PATCH here still leaves a perfectly
 				// finishable draft, just without a place guessed on it yet.
 				await fetch(`/api/studio/entries/${entryId}`, {
@@ -157,10 +213,46 @@ export default function BulkUpload() {
 			}
 
 			setPhase(key, { phase: 'done', entryId, occurredAt, placeLabel });
+			return { status: 'done', entryId, occurredAt, timezone, placeId, media };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Upload failed';
-			setPhase(key, { phase: 'error', message, retry: () => processFile(file, key) });
+			setPhase(key, { phase: 'error', message, retry: () => runFile(file, key) });
+			return { status: 'error' };
 		}
+	}
+
+	/**
+	 * Runs one file and, the first time anything actually finishes - whether
+	 * that's the batch's first file or a later retry after the first one
+	 * failed - opens it as the draft Lucas writes in, right away. Everything
+	 * after that point keeps uploading behind it instead of blocking on it.
+	 */
+	async function runFile(file: File, key: string) {
+		const result = await processFile(file, key);
+		if (!primaryAssigned.current && result.status === 'done') {
+			primaryAssigned.current = true;
+			setPrimary({
+				key,
+				initialEntry: {
+					id: result.entryId,
+					chapterId: null,
+					placeId: result.placeId,
+					format: 'moment',
+					category: 'life',
+					audience: DEFAULT_AUDIENCE,
+					originalLang: 'en',
+					title: 'Untitled entry',
+					dek: null,
+					bodyMd: null,
+					occurredAt: result.occurredAt,
+					timezone: result.timezone,
+					consentStatus: 'not_needed',
+					status: 'draft'
+				},
+				initialMedia: [{ ...result.media, people: [] }]
+			});
+		}
+		return result;
 	}
 
 	async function handleFiles(files: File[]) {
@@ -180,13 +272,24 @@ export default function BulkUpload() {
 
 		setProcessing(true);
 		// One file at a time (studio.md's "process files one at a time... so
-		// phones do not run out of memory") - now across files, not just
-		// across one file's three sizes, for the same reason.
+		// phones do not run out of memory") - the first one is what Lucas is
+		// waiting on, the rest just continue in this same loop afterward,
+		// which is what makes them "background" from his point of view once
+		// runFile has already opened the first as a draft.
 		for (let i = 0; i < files.length; i++) {
-			await processFile(files[i], newRows[i].key);
+			await runFile(files[i], newRows[i].key);
 		}
 		setProcessing(false);
 	}
+
+	// Before the first file has succeeded, every row (including it) shows in
+	// the plain list below, same as before this feature existed - only once
+	// primary exists does its row get pulled out into the inline editor
+	// instead, leaving the rest to show as "background" here.
+	const backgroundRows = primary ? rows.filter((r) => r.key !== primary.key) : [];
+	const visibleRows = primary ? backgroundRows : rows;
+	const backgroundDone = backgroundRows.filter((r) => ['done', 'duplicate', 'error'].includes(r.phase.phase)).length;
+	const showRing = backgroundRows.length > 0 && backgroundDone < backgroundRows.length;
 
 	return (
 		<div className="bulk-upload">
@@ -209,16 +312,26 @@ export default function BulkUpload() {
 				/>
 			</label>
 
-			{rows.length === 0 && (
+			{rows.length === 0 && !primary && (
 				<p className="hint">
-					Pick several photos at once, from any days or places. Each becomes its own draft entry with a guessed date
-					and place - open it from the list below to write the rest.
+					Pick several photos at once, from any days or places. The first one opens below to write up right away -
+					the rest finish behind it, one at a time.
 				</p>
 			)}
 
-			{rows.length > 0 && (
+			{primary && (
+				<div className="bulk-primary">
+					<p className="hint">
+						First draft ready - keep writing below.
+						{backgroundRows.length > 0 && ' The rest are uploading in the background; leaving this page stops them.'}
+					</p>
+					<EntryEditor chapters={[]} initialEntry={primary.initialEntry} initialMedia={primary.initialMedia} />
+				</div>
+			)}
+
+			{visibleRows.length > 0 && (
 				<ul className="bulk-list">
-					{rows.map((row) => (
+					{visibleRows.map((row) => (
 						<li key={row.key} className="bulk-row">
 							<img src={row.thumbUrl} alt="" />
 							<div className="bulk-row-info">
@@ -256,6 +369,8 @@ export default function BulkUpload() {
 					))}
 				</ul>
 			)}
+
+			{showRing && <BackgroundProgressRing done={backgroundDone} total={backgroundRows.length} />}
 		</div>
 	);
 }
