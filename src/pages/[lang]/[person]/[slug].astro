@@ -11,11 +11,13 @@ import {
 	getEntryTranslation,
 	getPersonBySlug,
 	listMediaForEntry,
+	listPeopleNamesByMedia,
 	resolveViewerForPerson
 } from '../../../db/queries';
 import FollowLogin from '../../../components/FollowLogin';
 import { isLocale, t, type Locale } from '../../../i18n/t';
-import { compositionForFormat } from '../../../lib/composition';
+import { compositionForFormat, type MediaForDisplay } from '../../../lib/composition';
+import { peopleNoteFor } from '../../../lib/peopleNote';
 import { resolveEntryText } from '../../../lib/translation';
 
 const { lang: rawLang, person: personSlug, slug } = Astro.params;
@@ -52,7 +54,7 @@ if (!entry) {
 	}
 }
 
-let media: Awaited<ReturnType<typeof listMediaForEntry>> = [];
+let media: MediaForDisplay[] = [];
 let adjacent: Awaited<ReturnType<typeof getAdjacentEntries>> | undefined;
 let entryForDisplay: {
 	title: string;
@@ -73,7 +75,11 @@ if (entry) {
 		listMediaForEntry(db, viewer, entry.id, now),
 		getAdjacentEntries(db, viewer, entry.personId, entry.occurredAt, now)
 	]);
-	media = mediaRows;
+	const namesByMedia = await listPeopleNamesByMedia(
+		db,
+		mediaRows.map((m) => m.id)
+	);
+	media = mediaRows.map((m) => ({ ...m, peopleNote: peopleNoteFor(namesByMedia.get(m.id) ?? [], dict.media.with) }));
 	adjacent = adjacentRows;
 
 	const resolved = resolveEntryText(

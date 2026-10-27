@@ -10,10 +10,13 @@ import {
 	getPlaceById,
 	listEntriesForViewer,
 	listMediaForEntry,
+	listPeopleNamesByMedia,
 	resolveViewerForPerson
 } from '../../db/queries';
 import { PRIMARY_PERSON_SLUG } from '../../config/site';
 import { isLocale, t, type Locale } from '../../i18n/t';
+import type { MediaForDisplay } from '../../lib/composition';
+import { peopleNoteFor } from '../../lib/peopleNote';
 import { resolveEntryText } from '../../lib/translation';
 import { paragraphsFrom } from '../../lib/text';
 
@@ -44,7 +47,7 @@ if (entrySlugParam && !entry) {
 	return new Response('Not found', { status: 404 });
 }
 
-let media: Awaited<ReturnType<typeof listMediaForEntry>> = [];
+let media: MediaForDisplay[] = [];
 let adjacent: { prev?: { slug: string }; next?: { slug: string } } = {};
 let resolvedTitle = '';
 let resolvedDek: string | null = null;
@@ -60,7 +63,11 @@ if (entry) {
 		entry.placeId ? getPlaceById(db, viewer, entry.placeId) : Promise.resolve(undefined)
 	]);
 
-	media = mediaRows;
+	const namesByMedia = await listPeopleNamesByMedia(
+		db,
+		mediaRows.map((m) => m.id)
+	);
+	media = mediaRows.map((m) => ({ ...m, peopleNote: peopleNoteFor(namesByMedia.get(m.id) ?? [], dict.media.with) }));
 	adjacent = adjacentRows;
 	placeLabel = place?.label ?? null;
 
@@ -100,6 +107,7 @@ const altPath = `/${lang === 'en' ? 'da' : 'en'}/journal${entry ? `?entry=${entr
 							height={m.height}
 							caption={m.caption}
 							altText={m.altText}
+							peopleNote={m.peopleNote}
 						/>
 					))}
 					{translationNote && <p class="translation-note">{translationNote}</p>}

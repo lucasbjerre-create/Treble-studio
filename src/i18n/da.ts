@@ -48,6 +48,9 @@ export const da: Dictionary = {
 		family: 'Kun følgere',
 		private: 'Kun mig'
 	},
+	media: {
+		with: 'Med'
+	},
 	follow: {
 		gatedTitle: 'Kun for følgere',
 		gatedBody: 'Dette er kun for følgere. Indtast din email for at bede om at følge, eller log ind hvis du allerede gør.',

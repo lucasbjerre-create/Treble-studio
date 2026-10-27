@@ -29,6 +29,8 @@ export interface MediaForDisplay {
 	height: number | null;
 	caption: string | null;
 	altText: string | null;
+	/** Pre-resolved "With Anna, Erik" line (src/lib/peopleNote.ts), or null when nobody's tagged. Not the box geometry - that stays studio-only. */
+	peopleNote: string | null;
 }
 
 export interface EntryForDisplay {

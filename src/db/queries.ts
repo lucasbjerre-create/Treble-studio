@@ -235,6 +235,30 @@ export async function listPeopleTagsForMedia(db: Database, mediaIds: number[]) {
 	return db.select().from(schema.mediaPeople).where(inArray(schema.mediaPeople.mediaId, mediaIds));
 }
 
+/**
+ * Names only, grouped by media id - feeds the public "With Anna, Erik" note
+ * below a photo (src/lib/peopleNote.ts). Safe for any viewer: a caller only
+ * ever passes ids it already got back from a viewer-filtered media query, so
+ * a media row this function was never asked about simply has no entry in
+ * the returned map - there's no separate audience check to get wrong here.
+ */
+export async function listPeopleNamesByMedia(db: Database, mediaIds: number[]): Promise<Map<number, string[]>> {
+	const byMedia = new Map<number, string[]>();
+	if (mediaIds.length === 0) return byMedia;
+
+	const rows = await db
+		.select({ mediaId: schema.mediaPeople.mediaId, name: schema.mediaPeople.name })
+		.from(schema.mediaPeople)
+		.where(inArray(schema.mediaPeople.mediaId, mediaIds));
+
+	for (const row of rows) {
+		const names = byMedia.get(row.mediaId) ?? [];
+		names.push(row.name);
+		byMedia.set(row.mediaId, names);
+	}
+	return byMedia;
+}
+
 // Autocomplete source for the "type a name" box - every name this person has
 // ever typed on one of their own photos, deduplicated. Free text, not a
 // roster table: a new name is simply one nothing here has returned yet.

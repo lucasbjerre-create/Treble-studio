@@ -9,9 +9,11 @@ interface Props {
 	height: number | null;
 	caption: string | null;
 	altText: string | null;
+	/** Pre-resolved "With Anna, Erik" line, already translated by the caller - this component stays i18n-unaware, same as caption/altText. */
+	peopleNote?: string | null;
 }
 
-const { kind, keyDisplay, keyLarge, posterKey, width, height, caption, altText } = Astro.props;
+const { kind, keyDisplay, keyLarge, posterKey, width, height, caption, altText, peopleNote } = Astro.props;
 
 // key_* are resolved as direct src paths for now (the milestone-2 fixtures
 // are plain /fixtures/ paths under public/). Once uploads and R2 serving
@@ -41,6 +43,7 @@ const aspectRatio = width && height ? `${width} / ${height}` : '4 / 3';
 		)
 	}
 	{caption && <figcaption>{caption}</figcaption>}
+	{peopleNote && <p class="people-note">{peopleNote}</p>}
 </figure>
 
 <style>
@@ -65,5 +68,14 @@ const aspectRatio = width && height ? `${width} / ${height}` : '4 / 3';
 		font-size: var(--text-small);
 		color: var(--color-text-muted);
 		padding: var(--space-2) 0 0;
+	}
+
+	.people-note {
+		font-family: var(--font-sans);
+		font-size: var(--text-micro);
+		color: var(--color-text-muted);
+		font-style: italic;
+		margin: 0;
+		padding: var(--space-1) 0 0;
 	}
 </style>

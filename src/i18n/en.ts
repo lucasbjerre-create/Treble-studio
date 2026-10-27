@@ -48,6 +48,11 @@ export interface Dictionary {
 		family: string;
 		private: string;
 	};
+	// The prefix before a photo's tagged names, e.g. "With Anna, Erik" - the
+	// names themselves are proper nouns, not translated.
+	media: {
+		with: string;
+	};
 	follow: {
 		gatedTitle: string;
 		gatedBody: string;
@@ -112,6 +117,9 @@ export const en: Dictionary = {
 		public: 'Public',
 		family: 'Followers only',
 		private: 'Only me'
+	},
+	media: {
+		with: 'With'
 	},
 	follow: {
 		gatedTitle: 'Followers only',
