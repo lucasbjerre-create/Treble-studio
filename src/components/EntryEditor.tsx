@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import './EntryEditor.css';
+import { findOrCreatePlaceFromGps } from '../lib/placeFromGps';
 import { resolveEntryText, type Lang } from '../lib/translation';
 import PhotoUpload, { type MediaItem, type PhotoGpsHint } from './PhotoUpload';
 
@@ -219,40 +220,16 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 	}
 
 	/**
-	 * Auto-detects a place from a photo's EXIF GPS, via reverse geocoding -
-	 * reuses an existing place with the same label (case-insensitive) rather
-	 * than creating a duplicate every time. Defaults new auto-created places
-	 * to city-level precision, same as the manual city lookup: GPS is exact,
-	 * but an entry's audience may be public, and precision is a privacy
-	 * choice Lucas should make deliberately, not one a default silently picks.
+	 * Auto-detects a place from a photo's EXIF GPS - best-effort, Lucas can
+	 * still pick or add a place by hand if this finds nothing.
 	 */
 	async function detectPlaceFromGps(gps: PhotoGpsHint) {
-		if (placeTouched || gps.latitude == null || gps.longitude == null) return;
-		try {
-			const res = await fetch(`/api/studio/geocode/reverse?lat=${gps.latitude}&lon=${gps.longitude}`);
-			if (!res.ok) return;
-			const { label } = (await res.json()) as { label: string };
-
-			const existing = places.find((p) => p.label.toLowerCase() === label.toLowerCase());
-			if (existing) {
-				setPlaceId(existing.id);
-				setPlaceTouched(true);
-				return;
-			}
-
-			const placeRes = await fetch('/api/studio/places', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ label, precision: 'city', latPrivate: gps.latitude, lonPrivate: gps.longitude })
-			});
-			if (!placeRes.ok) return;
-			const place = (await placeRes.json()) as Place;
-			setPlaces((prev) => [...prev, place]);
-			setPlaceId(place.id);
-			setPlaceTouched(true);
-		} catch {
-			// Best-effort - Lucas can still pick or add a place by hand.
-		}
+		if (placeTouched) return;
+		const place = await findOrCreatePlaceFromGps(gps, places);
+		if (!place) return;
+		setPlaces((prev) => (prev.some((p) => p.id === place.id) ? prev : [...prev, place]));
+		setPlaceId(place.id);
+		setPlaceTouched(true);
 	}
 
 	async function confirmPublish() {

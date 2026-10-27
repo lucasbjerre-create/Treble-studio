@@ -1,7 +1,6 @@
-import exifr from 'exifr';
 import { useState } from 'react';
 import './PhotoUpload.css';
-import { resizeToWebp } from '../lib/media';
+import { readPhotoMetadata, uploadPhotoToEntry, type PhotoGpsHint } from '../lib/mediaUpload';
 
 export interface MediaItem {
 	id: number;
@@ -10,10 +9,7 @@ export interface MediaItem {
 	capturedAt: string | null;
 }
 
-export interface PhotoGpsHint {
-	latitude: number | null;
-	longitude: number | null;
-}
+export type { PhotoGpsHint };
 
 interface Props {
 	entryId: number | null;
@@ -24,9 +20,6 @@ interface Props {
 	onUploaded: (item: MediaItem, gps: PhotoGpsHint) => void;
 	onRemoved: (id: number) => void;
 }
-
-type SizeName = 'thumb' | 'display' | 'large';
-const SIZE_WIDTHS: Record<SizeName, number> = { thumb: 480, display: 1280, large: 2048 };
 
 type FileStatus =
 	| { phase: 'processing' }
@@ -39,13 +32,6 @@ interface InFlightFile {
 	key: string;
 	name: string;
 	status: FileStatus;
-}
-
-async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
-	const digest = await crypto.subtle.digest('SHA-256', buffer);
-	return Array.from(new Uint8Array(digest))
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
 }
 
 /**
@@ -88,77 +74,11 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded,
 			if (!id) throw new Error('Could not create a draft to attach this photo to');
 
 			// Read EXIF before anything else touches the file (studio.md).
-			const exif = await exifr.parse(file, true).catch(() => undefined);
-			// exifr.gps() is the documented way to get both latitude and
-			// longitude reliably (parse()'s own output only guarantees
-			// latitude) - undefined when the photo has no GPS tags.
-			const gps = await exifr.gps(file).catch(() => undefined);
-			const originalBuffer = await file.arrayBuffer();
-			const sha256 = await sha256Hex(originalBuffer);
-
-			// imageOrientation: 'from-image' applies the EXIF orientation while
-			// decoding, so there's no separate manual rotation step.
-			const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-			// Captured before close() - a closed ImageBitmap reports 0x0 for
-			// both, which then failed the commit payload's validation.
-			const { width, height } = bitmap;
-			const blobs: Record<SizeName, Blob> = {
-				thumb: await resizeToWebp(bitmap, SIZE_WIDTHS.thumb),
-				display: await resizeToWebp(bitmap, SIZE_WIDTHS.display),
-				large: await resizeToWebp(bitmap, SIZE_WIDTHS.large)
-			};
-			bitmap.close();
-
-			setStatus({ phase: 'uploading', progress: '0 / 3' });
-
-			const presignRes = await fetch('/api/studio/media/presign', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ entryId: id })
-			});
-			if (!presignRes.ok) throw new Error('Could not get an upload URL');
-			const { keys, urls } = (await presignRes.json()) as {
-				keys: Record<SizeName, string>;
-				urls: Record<SizeName, string>;
-			};
-
-			let done = 0;
-			for (const size of ['thumb', 'display', 'large'] as SizeName[]) {
-				const putRes = await fetch(urls[size], {
-					method: 'PUT',
-					headers: { 'Content-Type': 'image/webp' },
-					body: blobs[size]
-				});
-				if (!putRes.ok) throw new Error(`Upload failed for the ${size} size`);
-				done += 1;
-				setStatus({ phase: 'uploading', progress: `${done} / 3` });
-			}
-
-			setStatus({ phase: 'committing' });
-
-			const commitRes = await fetch('/api/studio/media/commit', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					entryId: id,
-					keyThumb: keys.thumb,
-					keyDisplay: keys.display,
-					keyLarge: keys.large,
-					kind: 'photo',
-					mime: 'image/webp',
-					width,
-					height,
-					bytes: blobs.large.size,
-					capturedAt: exif?.DateTimeOriginal ? new Date(exif.DateTimeOriginal).toISOString() : null,
-					sha256,
-					exifJson: exif ? JSON.stringify(exif) : null
-				})
-			});
-			if (!commitRes.ok) throw new Error('Could not save the uploaded photo');
-			const row = (await commitRes.json()) as MediaItem;
+			const metadata = await readPhotoMetadata(file);
+			const { media, gps } = await uploadPhotoToEntry(file, id, metadata, setStatus);
 
 			setStatus({ phase: 'done' });
-			onUploaded(row, { latitude: gps?.latitude ?? null, longitude: gps?.longitude ?? null });
+			onUploaded(media, gps);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Upload failed';
 			setStatus({ phase: 'error', message, retry: () => processAndUpload(file, key) });

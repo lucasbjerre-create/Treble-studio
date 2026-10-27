@@ -1,0 +1,49 @@
+---
+import BulkUpload from '../../../components/BulkUpload';
+import StudioLayout from '../../../layouts/StudioLayout.astro';
+import { getDb } from '../../../db/client';
+import { getPersonByEmail } from '../../../db/queries';
+
+const db = getDb();
+const person = await getPersonByEmail(db, Astro.locals.accessEmail);
+if (!person) {
+	return new Response('No person record matches this account', { status: 403 });
+}
+---
+
+<StudioLayout title="Bulk upload">
+	<main class="studio">
+		<div class="top-row">
+			<h1>Bulk upload</h1>
+			<a class="link" href="/studio">Back to entries</a>
+		</div>
+		<BulkUpload client:only="react" />
+	</main>
+</StudioLayout>
+
+<style>
+	.studio {
+		max-width: 40rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--grid-margin) var(--space-12);
+		font-family: var(--font-sans);
+	}
+
+	.top-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: var(--space-6);
+	}
+
+	.link {
+		color: var(--color-link);
+		font-size: var(--text-small);
+	}
+
+	h1 {
+		font-family: var(--font-serif);
+		font-size: var(--text-h2);
+		margin: 0;
+	}
+</style>

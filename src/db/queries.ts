@@ -187,6 +187,22 @@ export async function listMediaForEntry(db: Database, viewer: Viewer, entryId: n
 	return query.orderBy(asc(schema.media.sortOrder));
 }
 
+/**
+ * Studio-only, owner-scoped: has this person already uploaded a photo with
+ * this exact sha256? Used by the bulk-upload flow to skip re-creating a
+ * duplicate entry rather than silently uploading the same photo twice.
+ * Scoped to ownerId, never just a bare sha256 match, so one person's upload
+ * can never surface another person's media row.
+ */
+export async function findMediaBySha256ForOwner(db: Database, ownerId: number, sha256: string) {
+	const rows = await db
+		.select({ id: schema.media.id, entryId: schema.media.entryId })
+		.from(schema.media)
+		.where(and(eq(schema.media.ownerId, ownerId), eq(schema.media.sha256, sha256)))
+		.limit(1);
+	return rows[0];
+}
+
 // The privacy-critical exclusion: lat_private/lon_private never selected for
 // public or family viewers, proven by their absence from the result, not a
 // null check.

@@ -5,7 +5,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { LOCATION_DELAY_HOURS, R2_BUCKET_NAME } from '../../config/site';
 import { getDb } from '../../db/client';
-import { getPersonByEmail, listPlacesForViewer } from '../../db/queries';
+import { findMediaBySha256ForOwner, getPersonByEmail, listPlacesForViewer } from '../../db/queries';
 import * as schema from '../../db/schema';
 import { publicCoordinatesForPrecision } from '../../lib/precision';
 import { slugify } from '../../lib/slug';
@@ -232,6 +232,19 @@ studioApi.get('/geocode/reverse', async (c) => {
 
 const PRESIGN_EXPIRY_SECONDS = 600; // 10 minutes - short-lived per spec section 8.
 const SIZES = ['thumb', 'display', 'large'] as const;
+
+// Bulk upload's duplicate check, queried before a new draft entry is created
+// for a file - lets it skip straight to "already uploaded, here's the entry"
+// instead of creating an orphan draft for a photo Lucas already has in.
+studioApi.get('/media/by-sha256', async (c) => {
+	const sha256 = c.req.query('sha256');
+	if (!sha256) return c.json({ error: 'Missing sha256' }, 400);
+
+	const db = getDb();
+	const existing = await findMediaBySha256ForOwner(db, c.get('personId'), sha256);
+	if (!existing) return c.json({ found: false });
+	return c.json({ found: true, entryId: existing.entryId });
+});
 
 const presignSchema = z.object({ entryId: z.number().int().positive() });
 
