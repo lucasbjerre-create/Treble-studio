@@ -40,6 +40,9 @@ function getRemoteJwks(teamDomain: string): JWTVerifyGetKey {
 export interface AccessEnv {
 	TEAM_DOMAIN?: string;
 	POLICY_AUD?: string;
+	// Local dev only - see verifyAccessRequest below. Set via .dev.vars
+	// (gitignored), never wrangler.jsonc and never `wrangler secret put`.
+	DEV_BYPASS_EMAIL?: string;
 }
 
 /**
@@ -49,6 +52,10 @@ export interface AccessEnv {
  * Missing secrets (not deployed/configured yet) fail closed, not open.
  */
 export async function verifyAccessRequest(request: Request, env: AccessEnv): Promise<AccessIdentity | null> {
+	if (import.meta.env.DEV && env.DEV_BYPASS_EMAIL) {
+		return { email: env.DEV_BYPASS_EMAIL };
+	}
+
 	const token = request.headers.get('Cf-Access-Jwt-Assertion');
 	if (!token || !env.TEAM_DOMAIN || !env.POLICY_AUD) return null;
 	return verifyAccessToken(token, getRemoteJwks(env.TEAM_DOMAIN), {
