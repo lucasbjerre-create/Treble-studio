@@ -1,11 +1,9 @@
 import type { Locale } from './t';
 
 /**
- * First-visit language: browser language if Danish, otherwise English.
- * Provisional default from docs/BUILD_PLAN.md until spec section 14.3 is settled.
+ * First-visit language: always English. Settled in spec section 14.3 -
+ * no browser-language detection. Visitors switch to Danish themselves.
  */
-export function detectLocale(acceptLanguageHeader: string | null): Locale {
-	if (!acceptLanguageHeader) return 'en';
-	const primary = acceptLanguageHeader.split(',')[0]?.trim().toLowerCase() ?? '';
-	return primary.startsWith('da') ? 'da' : 'en';
+export function detectLocale(): Locale {
+	return 'en';
 }
