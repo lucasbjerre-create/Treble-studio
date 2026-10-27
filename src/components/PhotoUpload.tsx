@@ -22,6 +22,7 @@ interface Props {
 	media: MediaItem[];
 	/** gps is this photo's own EXIF coordinates (not persisted as separate media columns, only inside exifJson), for auto-detecting a place. */
 	onUploaded: (item: MediaItem, gps: PhotoGpsHint) => void;
+	onRemoved: (id: number) => void;
 }
 
 type SizeName = 'thumb' | 'display' | 'large';
@@ -52,8 +53,19 @@ async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
  * do not run out of memory"), each with its own progress/retry - a failed
  * file never blocks the others or the already-saved draft.
  */
-export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded }: Props) {
+export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded, onRemoved }: Props) {
 	const [inFlight, setInFlight] = useState<InFlightFile[]>([]);
+	const [removingId, setRemovingId] = useState<number | null>(null);
+
+	async function removePhoto(id: number) {
+		setRemovingId(id);
+		try {
+			const res = await fetch(`/api/studio/media/${id}`, { method: 'DELETE' });
+			if (res.ok) onRemoved(id);
+		} finally {
+			setRemovingId(null);
+		}
+	}
 
 	// A retry reuses the same key so it updates the existing row instead of
 	// adding a second one - found live: a retry click looked like it did
@@ -189,7 +201,12 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded 
 			{media.length > 0 && (
 				<ul className="media-list">
 					{media.map((m) => (
-						<li key={m.id}>{m.keyThumb && <img src={`/api/studio/media-file/${m.keyThumb}`} alt={m.caption ?? ''} />}</li>
+						<li key={m.id}>
+							{m.keyThumb && <img src={`/api/studio/media-file/${m.keyThumb}`} alt={m.caption ?? ''} />}
+							<button type="button" className="remove" onClick={() => removePhoto(m.id)} disabled={removingId === m.id}>
+								{removingId === m.id ? '…' : '✕'}
+							</button>
+						</li>
 					))}
 				</ul>
 			)}

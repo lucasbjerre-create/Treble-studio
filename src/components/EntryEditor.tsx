@@ -37,11 +37,18 @@ interface Props {
 	initialMedia: MediaItem[];
 }
 
-const FORMATS = ['remark', 'moment', 'clip', 'note', 'feature', 'recap', 'postcard', 'milestone'];
 const CATEGORIES = ['life', 'school', 'trip'];
 const AUDIENCES: Array<InitialEntry['audience']> = ['private', 'family', 'public'];
 const PRECISIONS: Place['precision'][] = ['exact', 'area', 'city', 'hidden'];
 const CONSENTS = ['not_needed', 'asked', 'yes_family', 'yes_public', 'declined'];
+
+// Display only - the stored value stays the lowercase_with_underscores enum.
+function consentLabel(value: string): string {
+	return value
+		.split('_')
+		.map((word) => word[0].toUpperCase() + word.slice(1))
+		.join(' ');
+}
 
 // The three timezones the journey actually moves between - quick buttons
 // beat typing an IANA name on a phone. The field stays a free text input too
@@ -284,6 +291,7 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 					}
 					void detectPlaceFromGps(gps);
 				}}
+				onRemoved={(id) => setMedia((prev) => prev.filter((m) => m.id !== id))}
 			/>
 
 			<div className="field-grid">
@@ -302,38 +310,23 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 					<textarea value={bodyMd} onChange={(e) => setBodyMd(e.target.value)} rows={8} />
 				</label>
 
-				<label>
-					Format
-					<select value={format} onChange={(e) => setFormat(e.target.value)}>
-						{FORMATS.map((f) => (
-							<option key={f} value={f}>
-								{f}
-							</option>
-						))}
-					</select>
-				</label>
+				{/* Format and Chapter hidden for now, per Lucas's request - format
+				    stays at its default ('moment'), chapterId stays unset (null). */}
 
-				<label>
-					Category
-					<select value={category} onChange={(e) => setCategory(e.target.value)}>
+				<label className="full">
+					Tag
+					<div className="bubble-row">
 						{CATEGORIES.map((c) => (
-							<option key={c} value={c}>
+							<button
+								key={c}
+								type="button"
+								className={category === c ? 'bubble active' : 'bubble'}
+								onClick={() => setCategory(c)}
+							>
 								{c}
-							</option>
+							</button>
 						))}
-					</select>
-				</label>
-
-				<label>
-					Chapter
-					<select value={chapterId} onChange={(e) => setChapterId(e.target.value ? Number(e.target.value) : '')}>
-						<option value="">None</option>
-						{chapters.map((c) => (
-							<option key={c.id} value={c.id}>
-								{c.title}
-							</option>
-						))}
-					</select>
+					</div>
 				</label>
 
 				<label>
@@ -423,7 +416,7 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 					<select value={consentStatus} onChange={(e) => setConsentStatus(e.target.value)}>
 						{CONSENTS.map((c) => (
 							<option key={c} value={c}>
-								{c}
+								{consentLabel(c)}
 							</option>
 						))}
 					</select>
@@ -497,7 +490,7 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 						<dt>Precision</dt>
 						<dd>{selectedPlace?.precision ?? 'no place selected'}</dd>
 						<dt>Consent</dt>
-						<dd>{consentStatus}</dd>
+						<dd>{consentLabel(consentStatus)}</dd>
 					</dl>
 
 					<div className="lang-preview">

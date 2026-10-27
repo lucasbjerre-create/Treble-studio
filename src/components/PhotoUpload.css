@@ -55,8 +55,34 @@
 	padding: 0;
 }
 
+.media-list li {
+	position: relative;
+}
+
 .media-list img {
 	width: 96px;
 	height: 96px;
 	object-fit: cover;
+	display: block;
+}
+
+.media-list .remove {
+	position: absolute;
+	top: -8px;
+	right: -8px;
+	width: 28px;
+	height: 28px;
+	min-height: 0;
+	padding: 0;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-pill);
+	background: var(--color-surface);
+	color: var(--color-error);
+	cursor: pointer;
+	line-height: 1;
+}
+
+.media-list .remove:disabled {
+	color: var(--color-text-muted);
+	cursor: default;
 }

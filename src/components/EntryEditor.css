@@ -83,6 +83,31 @@
 	color: var(--color-on-primary);
 }
 
+.bubble-row {
+	display: flex;
+	gap: var(--space-2);
+	flex-wrap: wrap;
+}
+
+.bubble-row .bubble {
+	min-height: var(--touch-min);
+	padding: 0 var(--space-4);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-pill);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-small);
+	text-transform: capitalize;
+	cursor: pointer;
+}
+
+.bubble-row .bubble.active {
+	background: var(--color-primary);
+	border-color: var(--color-primary);
+	color: var(--color-on-primary);
+}
+
 .new-place {
 	display: grid;
 	grid-template-columns: 1fr 1fr;

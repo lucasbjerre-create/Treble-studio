@@ -343,6 +343,29 @@ studioApi.post('/media/commit', async (c) => {
 	return c.json(row, 201);
 });
 
+studioApi.delete('/media/:id', async (c) => {
+	const id = Number(c.req.param('id'));
+	if (!Number.isInteger(id)) return c.json({ error: 'Invalid id' }, 400);
+
+	const db = getDb();
+	const rows = await db.select().from(schema.media).where(eq(schema.media.id, id)).limit(1);
+	const mediaRow = rows[0];
+	if (!mediaRow) return c.json({ error: 'Not found' }, 404);
+
+	const existing = await requireOwnEntry(db, mediaRow.entryId, c.get('personId'));
+	if (!existing) return c.json({ error: 'Not found' }, 404);
+
+	// R2 deletion first: if it fails partway, the DB row staying put means
+	// retrying this same delete is still safe, same reasoning as the
+	// existence check on commit above - never the other way around, which
+	// could leave orphaned objects with nothing left pointing at them.
+	const keys = [mediaRow.keyThumb, mediaRow.keyDisplay, mediaRow.keyLarge].filter((key): key is string => key !== null);
+	await Promise.all(keys.map((key) => env.MEDIA.delete(key)));
+	await db.delete(schema.media).where(eq(schema.media.id, id));
+
+	return c.json({ ok: true });
+});
+
 // A simple studio-only pass-through for viewing just-uploaded photos, not
 // the public/family-facing serving route with precision/consent checks
 // (that's later milestone work - privacy.md's "Family media served through
