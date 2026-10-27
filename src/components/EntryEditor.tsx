@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './EntryEditor.css';
+import { DEFAULT_AUDIENCE } from '../config/site';
 import { findOrCreatePlaceFromGps } from '../lib/placeFromGps';
+import { timezoneFromGps } from '../lib/timezoneFromGps';
 import { resolveEntryText, type Lang } from '../lib/translation';
 import PhotoUpload, { type MediaItem, type PhotoGpsHint } from './PhotoUpload';
 
@@ -13,6 +15,7 @@ interface Place {
 	id: number;
 	label: string;
 	precision: 'exact' | 'area' | 'city' | 'hidden';
+	starred: boolean;
 }
 
 export interface InitialEntry {
@@ -77,7 +80,8 @@ function isoToLocalInputValue(iso: string): string {
 
 export default function EntryEditor({ chapters, initialEntry, initialMedia }: Props) {
 	const [entryId, setEntryId] = useState<number | null>(initialEntry?.id ?? null);
-	const [status, setStatus] = useState(initialEntry?.status ?? 'draft');
+	// Publishing navigates away (confirmPublish) rather than updating this in place, so it never needs to change.
+	const status = initialEntry?.status ?? 'draft';
 	const [places, setPlaces] = useState<Place[]>([]);
 	const [media, setMedia] = useState<MediaItem[]>(initialMedia);
 
@@ -88,7 +92,7 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 	const [category, setCategory] = useState(initialEntry?.category ?? 'life');
 	const [chapterId, setChapterId] = useState<number | ''>(initialEntry?.chapterId ?? '');
 	const [placeId, setPlaceId] = useState<number | ''>(initialEntry?.placeId ?? '');
-	const [audience, setAudience] = useState<InitialEntry['audience']>(initialEntry?.audience ?? 'family');
+	const [audience, setAudience] = useState<InitialEntry['audience']>(initialEntry?.audience ?? DEFAULT_AUDIENCE);
 	const [originalLang, setOriginalLang] = useState<Lang>(initialEntry?.originalLang ?? 'en');
 	const [occurredAtLocal, setOccurredAtLocal] = useState(
 		initialEntry ? initialEntry.occurredAt.slice(0, 16) : nowLocalInputValue()
@@ -99,6 +103,11 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 	const [timezone, setTimezone] = useState(
 		initialEntry?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 	);
+	// Whether Lucas has touched the timezone himself - once he has, a photo's
+	// GPS never silently overrides his choice. Mirrors occurredAtTouched: a
+	// brand new entry starts untouched so the first photo's own location (not
+	// the phone uploading it) can set it.
+	const [timezoneTouched, setTimezoneTouched] = useState(initialEntry !== null);
 	const [consentStatus, setConsentStatus] = useState(initialEntry?.consentStatus ?? 'not_needed');
 
 	const [saving, setSaving] = useState(false);
@@ -109,9 +118,11 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 	const [newPlaceQuery, setNewPlaceQuery] = useState('');
 	const [newPlaceLabel, setNewPlaceLabel] = useState('');
 	const [newPlacePrecision, setNewPlacePrecision] = useState<Place['precision']>('city');
+	const [newPlaceStarred, setNewPlaceStarred] = useState(false);
 	const [newPlaceResolved, setNewPlaceResolved] = useState<{ lat: number; lon: number } | null>(null);
 	const [newPlaceLookingUp, setNewPlaceLookingUp] = useState(false);
 	const [newPlaceLookupError, setNewPlaceLookupError] = useState<string | null>(null);
+	const [starring, setStarring] = useState(false);
 	// Whether placeId was set by Lucas picking from the dropdown or typing a
 	// new place, vs. auto-detected from a photo's GPS - once touched, a later
 	// photo's GPS never silently overrides his choice.
@@ -121,11 +132,34 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 	const [publishing, setPublishing] = useState(false);
 	const [publishError, setPublishError] = useState<string | null>(null);
 
+	// Cached across calls (BulkUpload's ensurePlacesLoaded pattern) so GPS
+	// detection always matches against the full list instead of racing the
+	// initial fetch - without this, a fast upload could create a place
+	// before the GET resolved, and the GET's plain overwrite would then wipe
+	// the just-detected place back out of the dropdown.
+	const placesLoadedRef = useRef<Promise<Place[]> | null>(null);
+	function ensurePlacesLoaded(): Promise<Place[]> {
+		if (!placesLoadedRef.current) {
+			placesLoadedRef.current = fetch('/api/studio/places')
+				.then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Could not load places (${r.status})`))))
+				.then((rows) => {
+					const loaded = rows as Place[];
+					setPlaces((prev) => {
+						const extra = prev.filter((p) => !loaded.some((l) => l.id === p.id));
+						return [...loaded, ...extra];
+					});
+					return loaded;
+				})
+				.catch((err) => {
+					setSaveError('Could not load places - your session may have expired. Reload the page.');
+					throw err;
+				});
+		}
+		return placesLoadedRef.current;
+	}
+
 	useEffect(() => {
-		fetch('/api/studio/places')
-			.then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Could not load places (${r.status})`))))
-			.then((rows) => setPlaces(rows as Place[]))
-			.catch(() => setSaveError('Could not load places - your session may have expired. Reload the page.'));
+		ensurePlacesLoaded().catch(() => undefined);
 	}, []);
 
 	function currentPayload() {
@@ -195,6 +229,7 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 		setNewPlaceOpen(false);
 		setNewPlaceQuery('');
 		setNewPlaceLabel('');
+		setNewPlaceStarred(false);
 		setNewPlaceResolved(null);
 		setNewPlaceLookupError(null);
 	}
@@ -208,7 +243,8 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 				label: newPlaceLabel,
 				precision: newPlacePrecision,
 				latPrivate: newPlaceResolved.lat,
-				lonPrivate: newPlaceResolved.lon
+				lonPrivate: newPlaceResolved.lon,
+				starred: newPlaceStarred
 			})
 		});
 		if (!res.ok) return;
@@ -219,29 +255,94 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 		resetNewPlaceForm();
 	}
 
+	const [renameLabel, setRenameLabel] = useState('');
+	const [renaming, setRenaming] = useState(false);
+	const [renameError, setRenameError] = useState<string | null>(null);
+
+	/**
+	 * Renames the currently selected place's headline label (e.g. a
+	 * GPS-guessed "Tinicum Township" to "Philadelphia Airport") without
+	 * touching its coordinates or precision - a label is just what to call
+	 * the place, the location data stays whatever it already was.
+	 */
+	async function renamePlace() {
+		if (placeId === '' || !renameLabel.trim()) return;
+		setRenaming(true);
+		setRenameError(null);
+		try {
+			const res = await fetch(`/api/studio/places/${placeId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ label: renameLabel.trim() })
+			});
+			if (!res.ok) throw new Error('Rename failed');
+			const updated = (await res.json()) as Place;
+			setPlaces((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+		} catch (err) {
+			setRenameError(err instanceof Error ? err.message : 'Rename failed');
+		} finally {
+			setRenaming(false);
+		}
+	}
+
+	/** Toggles the selected place's studio-only starred shortcut (picker ordering only, no location data touched). */
+	async function toggleStarred() {
+		if (placeId === '' || !selectedPlace) return;
+		setStarring(true);
+		try {
+			const res = await fetch(`/api/studio/places/${placeId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ starred: !selectedPlace.starred })
+			});
+			if (!res.ok) return;
+			const updated = (await res.json()) as Place;
+			setPlaces((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+		} finally {
+			setStarring(false);
+		}
+	}
+
 	/**
 	 * Auto-detects a place from a photo's EXIF GPS - best-effort, Lucas can
 	 * still pick or add a place by hand if this finds nothing.
 	 */
 	async function detectPlaceFromGps(gps: PhotoGpsHint) {
 		if (placeTouched) return;
-		const place = await findOrCreatePlaceFromGps(gps, places);
+		const currentPlaces = await ensurePlacesLoaded().catch(() => places);
+		const place = await findOrCreatePlaceFromGps(gps, currentPlaces);
 		if (!place) return;
 		setPlaces((prev) => (prev.some((p) => p.id === place.id) ? prev : [...prev, place]));
 		setPlaceId(place.id);
 		setPlaceTouched(true);
 	}
 
+	/**
+	 * Auto-detects the timezone a photo was actually taken in, from its own
+	 * EXIF GPS - never the phone's current timezone (a Danish phone
+	 * travelling in the US must not tag a Danish photo as US time).
+	 */
+	function detectTimezoneFromGps(gps: PhotoGpsHint) {
+		if (timezoneTouched) return;
+		const tz = timezoneFromGps(gps);
+		if (!tz) return;
+		setTimezone(tz);
+		setTimezoneTouched(true);
+	}
+
 	async function confirmPublish() {
 		setPublishing(true);
 		setPublishError(null);
 		try {
-			const id = entryId ?? (await saveDraft());
+			// Always flushes the current form state first, even when entryId
+			// already exists - otherwise edits made since the draft was created
+			// (title, corrected date, audience, ...) are published without ever
+			// having been saved.
+			const id = await saveDraft();
 			if (!id) throw new Error('Save the draft before publishing');
 			const res = await fetch(`/api/studio/entries/${id}/publish`, { method: 'POST' });
 			if (!res.ok) throw new Error(`Publish failed (${res.status})`);
-			setStatus('published');
-			setReviewOpen(false);
+			window.location.href = `/studio/entries/${id}/published`;
 		} catch (err) {
 			setPublishError(err instanceof Error ? err.message : 'Publish failed');
 		} finally {
@@ -250,6 +351,21 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 	}
 
 	const selectedPlace = places.find((p) => p.id === placeId);
+	// Starred places (Chapel Hill, etc. - wherever a lot will happen) float to
+	// their own group at the top of the picker instead of sitting wherever the
+	// alphabet puts them.
+	const sortedPlaces = [...places].sort((a, b) => a.label.localeCompare(b.label));
+	const starredPlaces = sortedPlaces.filter((p) => p.starred);
+	const unstarredPlaces = sortedPlaces.filter((p) => !p.starred);
+
+	// Keeps the rename field showing the selected place's current label -
+	// switching places (or a fresh auto-detection) replaces it, but Lucas's
+	// own in-progress edit is left alone until he switches places again.
+	useEffect(() => {
+		setRenameLabel(selectedPlace?.label ?? '');
+		setRenameError(null);
+	}, [selectedPlace?.id, selectedPlace?.label]);
+
 	const otherLang: Lang = originalLang === 'en' ? 'da' : 'en';
 	const source = { originalLang, title, dek: dek || null, bodyMd: bodyMd || null };
 	const previewOriginal = resolveEntryText(source, undefined, originalLang);
@@ -267,8 +383,12 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 						setOccurredAtLocal(isoToLocalInputValue(item.capturedAt));
 					}
 					void detectPlaceFromGps(gps);
+					detectTimezoneFromGps(gps);
 				}}
 				onRemoved={(id) => setMedia((prev) => prev.filter((m) => m.id !== id))}
+				onPeopleChanged={(mediaId, people) =>
+					setMedia((prev) => prev.map((m) => (m.id === mediaId ? { ...m, people } : m)))
+				}
 			/>
 
 			<div className="field-grid">
@@ -278,7 +398,7 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 				</label>
 
 				<label>
-					Dek (optional)
+					Subtitle (optional)
 					<input value={dek} onChange={(e) => setDek(e.target.value)} maxLength={300} />
 				</label>
 
@@ -316,13 +436,52 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 						}}
 					>
 						<option value="">None</option>
-						{places.map((p) => (
-							<option key={p.id} value={p.id}>
-								{p.label} ({p.precision})
-							</option>
-						))}
+						{starredPlaces.length > 0 ? (
+							<>
+								<optgroup label="Starred">
+									{starredPlaces.map((p) => (
+										<option key={p.id} value={p.id}>
+											{p.label} ({p.precision})
+										</option>
+									))}
+								</optgroup>
+								<optgroup label="All places">
+									{unstarredPlaces.map((p) => (
+										<option key={p.id} value={p.id}>
+											{p.label} ({p.precision})
+										</option>
+									))}
+								</optgroup>
+							</>
+						) : (
+							unstarredPlaces.map((p) => (
+								<option key={p.id} value={p.id}>
+									{p.label} ({p.precision})
+								</option>
+							))
+						)}
 					</select>
 				</label>
+
+				{placeId !== '' && (
+					<label className="full">
+						Call this place (keeps its location data)
+						<div className="city-lookup-row">
+							<input value={renameLabel} onChange={(e) => setRenameLabel(e.target.value)} maxLength={200} />
+							<button
+								type="button"
+								onClick={renamePlace}
+								disabled={renaming || !renameLabel.trim() || renameLabel.trim() === selectedPlace?.label}
+							>
+								{renaming ? 'Renaming…' : 'Rename'}
+							</button>
+							<button type="button" onClick={toggleStarred} disabled={starring}>
+								{selectedPlace?.starred ? '★ Starred' : '☆ Star this place'}
+							</button>
+						</div>
+						{renameError && <p className="error">{renameError}</p>}
+					</label>
+				)}
 
 				<button
 					type="button"
@@ -369,6 +528,10 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 									</option>
 								))}
 							</select>
+						</label>
+						<label className="checkbox-row">
+							<input type="checkbox" checked={newPlaceStarred} onChange={(e) => setNewPlaceStarred(e.target.checked)} />
+							Star this place (shows at the top of the picker)
 						</label>
 						<button type="button" onClick={addPlace} disabled={!newPlaceResolved || !newPlaceLabel.trim()}>
 							Save place
@@ -427,13 +590,22 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 								key={preset.value}
 								type="button"
 								className={timezone === preset.value ? 'active' : ''}
-								onClick={() => setTimezone(preset.value)}
+								onClick={() => {
+									setTimezoneTouched(true);
+									setTimezone(preset.value);
+								}}
 							>
 								{preset.label}
 							</button>
 						))}
 					</div>
-					<input value={timezone} onChange={(e) => setTimezone(e.target.value)} />
+					<input
+						value={timezone}
+						onChange={(e) => {
+							setTimezoneTouched(true);
+							setTimezone(e.target.value);
+						}}
+					/>
 				</label>
 			</div>
 

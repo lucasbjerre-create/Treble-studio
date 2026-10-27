@@ -478,9 +478,10 @@ Only if at least two students actually want it. Separate repo, fictional sample 
 - Route accent colour (item 4 below): settled by the TREBLE brand kit, decided 2026-10-24. There is no single bespoke "route accent" any more - interactive colour is the kit's `--color-link` (CBS blue, ink only), and routes/trails on the map use each scholar's seat colour (section 6) rather than one shared accent. The "muted red placeholder" token this item used to point at is gone.
 - "Family" becomes "followers of this person": decided 2026-10-26, milestone 5 built on it. Not one shared family list any more - a visitor emails to ask, Lucas approves per person in `/studio`, and only an approved follower of *that specific person* sees their family-tier entries. Following one person never implies following another. Replaces the family-tier half of the Cloudflare Access allowlist described in section 9 below (Access still gates `/studio` itself, unchanged).
 - First-visit language (item 3 below): English, always. Decided 2026-10-27. No browser-language detection - every first-time visitor lands on the English site and switches to Danish themselves if they want it. `src/i18n/detect.ts` no longer reads `Accept-Language`.
+- Audience model (item 1 below): public first. Decided 2026-10-27. A new entry defaults to `public`; private and family are opt in per entry. `src/config/site.ts`'s `DEFAULT_AUDIENCE` is the one place this lives.
 
 **Needed before building**
-1. Audience model. Family first with opt in public entries (this file's default), or public first with a family layer on top.
+1. ~~Audience model. Family first with opt in public entries, or public first with a family layer on top.~~ Settled, see above.
 2. Who goes on the family allowlist, and whether grandparents can manage email codes or rely on the digest.
 3. ~~Which language a first time visitor lands on when the browser gives no clear signal.~~ Settled, see above.
 4. ~~Route accent color.~~ Settled, see above.

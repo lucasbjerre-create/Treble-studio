@@ -5,8 +5,8 @@
 /** The person this site currently reads as - schema is multi-author ready, but there's one author for now. */
 export const PRIMARY_PERSON_SLUG = 'lucas';
 
-/** Default audience for a new entry (BUILD_PLAN.md's provisional default: "family first, public is opt in"). */
-export const DEFAULT_AUDIENCE = 'family';
+/** Default audience for a new entry (spec section 14, settled 2026-10-27: public first, private/family is opt in). */
+export const DEFAULT_AUDIENCE = 'public';
 
 /** publish_after default for a new public entry: occurred_at plus this many hours (BUILD_PLAN.md's provisional default). */
 export const LOCATION_DELAY_HOURS = 48;
@@ -19,3 +19,6 @@ export const SITE_URL = 'https://treble.cordoza.dk';
 
 /** How long a viewer login code stays valid (milestone 5). */
 export const LOGIN_CODE_EXPIRY_MINUTES = 10;
+
+/** A draft nobody finished auto-deletes this many days after it was created (never a published entry). Day-granularity only, by design - see src/lib/draftExpiry.ts. */
+export const DRAFT_EXPIRY_DAYS = 8;

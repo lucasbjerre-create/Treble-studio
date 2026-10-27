@@ -9,6 +9,7 @@ export interface PlaceLike {
 	id: number;
 	label: string;
 	precision: 'exact' | 'area' | 'city' | 'hidden';
+	starred: boolean;
 }
 
 /**

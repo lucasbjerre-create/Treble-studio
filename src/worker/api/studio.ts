@@ -5,11 +5,17 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { LOCATION_DELAY_HOURS, R2_BUCKET_NAME } from '../../config/site';
 import { getDb } from '../../db/client';
-import { findMediaBySha256ForOwner, getPersonByEmail, listPlacesForViewer } from '../../db/queries';
+import {
+	findMediaBySha256ForOwner,
+	getPersonByEmail,
+	listPeopleNamesForPerson,
+	listPlacesForViewer
+} from '../../db/queries';
 import * as schema from '../../db/schema';
 import { publicCoordinatesForPrecision } from '../../lib/precision';
 import { slugify } from '../../lib/slug';
 import { verifyAccessRequest } from '../auth';
+import { deleteEntryCascade } from '../entryDeletion';
 import { geocodeCity, reverseGeocodeCity } from '../geocoding';
 
 type Variables = { accessEmail: string; personId: number };
@@ -37,6 +43,19 @@ async function requireOwnEntry(db: ReturnType<typeof getDb>, entryId: number, pe
 		.select({ id: schema.entries.id, personId: schema.entries.personId })
 		.from(schema.entries)
 		.where(and(eq(schema.entries.id, entryId), eq(schema.entries.personId, personId)))
+		.limit(1);
+	return rows[0];
+}
+
+// Same ownership check as requireOwnEntry, but starting from a media id -
+// media.ownerId is set at commit time to whoever uploaded it, which is
+// always this person for a solo site, so checking that column directly
+// (rather than joining back through entries) is enough and one query.
+async function requireOwnMedia(db: ReturnType<typeof getDb>, mediaId: number, personId: number) {
+	const rows = await db
+		.select({ id: schema.media.id, ownerId: schema.media.ownerId })
+		.from(schema.media)
+		.where(and(eq(schema.media.id, mediaId), eq(schema.media.ownerId, personId)))
 		.limit(1);
 	return rows[0];
 }
@@ -142,6 +161,42 @@ studioApi.patch('/entries/:id', async (c) => {
 	return c.json({ ok: true });
 });
 
+studioApi.delete('/entries/:id', async (c) => {
+	const id = Number(c.req.param('id'));
+	if (!Number.isInteger(id)) return c.json({ error: 'Invalid id' }, 400);
+
+	const db = getDb();
+	const personId = c.get('personId');
+	const existing = await requireOwnEntry(db, id, personId);
+	if (!existing) return c.json({ error: 'Not found' }, 404);
+
+	await deleteEntryCascade(db, id);
+
+	return c.json({ ok: true });
+});
+
+const bulkDeleteSchema = z.object({ ids: z.array(z.number().int().positive()).min(1).max(200) });
+
+studioApi.post('/entries/bulk-delete', async (c) => {
+	const parsed = bulkDeleteSchema.safeParse(await c.req.json());
+	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
+
+	const db = getDb();
+	const personId = c.get('personId');
+	const deleted: number[] = [];
+	// One at a time, same as the retry-safe ordering on the single delete -
+	// a failure partway through still leaves every row before it actually
+	// gone, with deleted telling the caller exactly where it stopped.
+	for (const id of parsed.data.ids) {
+		const existing = await requireOwnEntry(db, id, personId);
+		if (!existing) continue;
+		await deleteEntryCascade(db, id);
+		deleted.push(id);
+	}
+
+	return c.json({ deleted });
+});
+
 studioApi.post('/entries/:id/publish', async (c) => {
 	const id = Number(c.req.param('id'));
 	if (!Number.isInteger(id)) return c.json({ error: 'Invalid id' }, 400);
@@ -176,7 +231,8 @@ const newPlaceSchema = z.object({
 	countryCode: z.string().length(2).nullable().optional(),
 	precision: z.enum(['exact', 'area', 'city', 'hidden']),
 	latPrivate: z.number().min(-90).max(90).nullable().optional(),
-	lonPrivate: z.number().min(-180).max(180).nullable().optional()
+	lonPrivate: z.number().min(-180).max(180).nullable().optional(),
+	starred: z.boolean().optional()
 });
 
 studioApi.post('/places', async (c) => {
@@ -199,11 +255,35 @@ studioApi.post('/places', async (c) => {
 			latPrivate: input.latPrivate ?? null,
 			lonPrivate: input.lonPrivate ?? null,
 			latPublic: publicCoords?.lat ?? null,
-			lonPublic: publicCoords?.lon ?? null
+			lonPublic: publicCoords?.lon ?? null,
+			starred: input.starred ?? false
 		})
 		.returning();
 
 	return c.json(row, 201);
+});
+
+const placeUpdateSchema = z
+	.object({ label: z.string().min(1).max(200).optional(), starred: z.boolean().optional() })
+	.refine((v) => v.label !== undefined || v.starred !== undefined, { message: 'Nothing to update' });
+
+// Renames a place's headline label and/or toggles its studio-only starred
+// shortcut - lat/lon/precision are always untouched, so e.g. a GPS-guessed
+// "Tinicum Township" can become "Philadelphia Airport" everywhere that place
+// is used, without losing the coordinates or re-running the
+// privacy-precision rounding.
+studioApi.patch('/places/:id', async (c) => {
+	const id = Number(c.req.param('id'));
+	if (!Number.isInteger(id)) return c.json({ error: 'Invalid id' }, 400);
+
+	const parsed = placeUpdateSchema.safeParse(await c.req.json());
+	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
+
+	const db = getDb();
+	const [row] = await db.update(schema.places).set(parsed.data).where(eq(schema.places.id, id)).returning();
+	if (!row) return c.json({ error: 'Not found' }, 404);
+
+	return c.json(row);
 });
 
 // City-level geocoding via Nominatim (OpenStreetMap), so Lucas can type a
@@ -374,9 +454,65 @@ studioApi.delete('/media/:id', async (c) => {
 	// could leave orphaned objects with nothing left pointing at them.
 	const keys = [mediaRow.keyThumb, mediaRow.keyDisplay, mediaRow.keyLarge].filter((key): key is string => key !== null);
 	await Promise.all(keys.map((key) => env.MEDIA.delete(key)));
+	await db.delete(schema.mediaPeople).where(eq(schema.mediaPeople.mediaId, id));
 	await db.delete(schema.media).where(eq(schema.media.id, id));
 
 	return c.json({ ok: true });
+});
+
+// ---- people tags on a photo ----
+// Free-text name on a face box, studio-only (never a /studio-first-time-user
+// account, no email, no notification) - see src/db/schema.ts's mediaPeople
+// comment. Detection itself runs in the browser; these two routes only ever
+// persist a box + name the person already confirmed.
+
+const peopleTagSchema = z.object({
+	name: z.string().trim().min(1).max(100),
+	boxX: z.number().min(0).max(1),
+	boxY: z.number().min(0).max(1),
+	boxW: z.number().min(0).max(1),
+	boxH: z.number().min(0).max(1)
+});
+
+studioApi.post('/media/:id/people', async (c) => {
+	const mediaId = Number(c.req.param('id'));
+	if (!Number.isInteger(mediaId)) return c.json({ error: 'Invalid id' }, 400);
+
+	const parsed = peopleTagSchema.safeParse(await c.req.json());
+	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
+
+	const db = getDb();
+	const existing = await requireOwnMedia(db, mediaId, c.get('personId'));
+	if (!existing) return c.json({ error: 'Not found' }, 404);
+
+	const [row] = await db
+		.insert(schema.mediaPeople)
+		.values({ mediaId, ...parsed.data, createdAt: new Date().toISOString() })
+		.returning();
+
+	return c.json(row, 201);
+});
+
+studioApi.delete('/media/:id/people/:tagId', async (c) => {
+	const mediaId = Number(c.req.param('id'));
+	const tagId = Number(c.req.param('tagId'));
+	if (!Number.isInteger(mediaId) || !Number.isInteger(tagId)) return c.json({ error: 'Invalid id' }, 400);
+
+	const db = getDb();
+	const existing = await requireOwnMedia(db, mediaId, c.get('personId'));
+	if (!existing) return c.json({ error: 'Not found' }, 404);
+
+	await db.delete(schema.mediaPeople).where(and(eq(schema.mediaPeople.id, tagId), eq(schema.mediaPeople.mediaId, mediaId)));
+	return c.json({ ok: true });
+});
+
+// Autocomplete list for the name field - every name this person has typed
+// on any of their own photos before, so typing "Anna" again doesn't start
+// from nothing the second time.
+studioApi.get('/people-names', async (c) => {
+	const db = getDb();
+	const names = await listPeopleNamesForPerson(db, c.get('personId'));
+	return c.json(names);
 });
 
 // A simple studio-only pass-through for viewing just-uploaded photos, not

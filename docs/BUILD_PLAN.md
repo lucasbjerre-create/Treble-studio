@@ -12,7 +12,7 @@ The spec lists open decisions in section 14. Until Lucas decides, build with the
 
 | Decision | Default for now | Lives in |
 |---|---|---|
-| Audience model | Family first. New entries default to `family`, public is opt in per entry | `src/config/site.ts` |
+| Audience model | Settled 2026-10-27: public first. New entries default to `public`, private/family is opt in per entry | `src/config/site.ts` |
 | First visit language | Always English | `src/i18n/detect.ts` |
 | Route accent color | Settled 2026-10-24 by the TREBLE brand kit: `--color-link` (CBS blue) for interactive colour, scholar seat colours for routes/trails. No longer a placeholder. | `src/styles/tokens.css` |
 | Studio on phone | Upload and cull work on a phone. Writing can assume a laptop | design of `/studio` |

@@ -50,7 +50,10 @@ export const places = sqliteTable('places', {
 	lonPrivate: real('lon_private'),
 	latPublic: real('lat_public'),
 	lonPublic: real('lon_public'),
-	precision: text('precision', { enum: ['exact', 'area', 'city', 'hidden'] }).notNull()
+	precision: text('precision', { enum: ['exact', 'area', 'city', 'hidden'] }).notNull(),
+	// Studio-only shortcut: starred places float to the top of the entry
+	// editor's place picker. Never exposed to public/family viewers.
+	starred: integer('starred', { mode: 'boolean' }).notNull().default(false)
 });
 
 export const trips = sqliteTable(
@@ -132,7 +135,9 @@ export const entries = sqliteTable(
 		status: text('status', {
 			enum: ['inbox', 'draft', 'uploading', 'ready', 'published', 'archived']
 		}).notNull(),
-		// Family first: new entries default to family, public is opt in per entry (BUILD_PLAN.md provisional default).
+		// This column default is a last-resort DB fallback only - every insert sets audience explicitly.
+		// The app's real default (public, spec section 14, settled 2026-10-27) lives in src/config/site.ts's
+		// DEFAULT_AUDIENCE. Left as 'family' here rather than rebuilding the table for a value nothing reads.
 		audience: text('audience', { enum: ['private', 'family', 'public'] }).notNull().default('family'),
 		originalLang: text('original_lang', { enum: ['da', 'en'] }).notNull(),
 		title: text('title').notNull(),
@@ -383,4 +388,26 @@ export const crossingParticipants = sqliteTable(
 		confirmedAt: text('confirmed_at')
 	},
 	(t) => [primaryKey({ columns: [t.crossingId, t.personId] }), index('crossing_participants_person_id_idx').on(t.personId)]
+);
+
+// Free-text name tags on a face box in one photo - never a pointer to
+// `people` (that table is contributor accounts, a different thing), no
+// email, no notification. Studio-only: never selected by a public/family
+// query. box_x/y/w/h are fractions of the image (0-1), not pixels, so a tag
+// still lines up after thumb/display/large are served at different sizes.
+export const mediaPeople = sqliteTable(
+	'media_people',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		mediaId: integer('media_id')
+			.notNull()
+			.references(() => media.id),
+		name: text('name').notNull(),
+		boxX: real('box_x').notNull(),
+		boxY: real('box_y').notNull(),
+		boxW: real('box_w').notNull(),
+		boxH: real('box_h').notNull(),
+		createdAt: text('created_at').notNull()
+	},
+	(t) => [index('media_people_media_id_idx').on(t.mediaId)]
 );
