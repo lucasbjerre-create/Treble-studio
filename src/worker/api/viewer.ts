@@ -31,7 +31,12 @@ viewerApi.post('/request-code', async (c) => {
 
 	const parsed = requestCodeSchema.safeParse(await c.req.json());
 	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
-	const { email, lang } = parsed.data;
+	// Lowercased everywhere an email is stored or compared (also in
+	// verify-code and follow below, and resolveViewerForPerson in
+	// queries.ts) - otherwise "Test@Example.com" at one step and
+	// "test@example.com" at another silently fail to match.
+	const email = parsed.data.email.toLowerCase();
+	const { lang } = parsed.data;
 
 	const db = getDb();
 	const now = new Date();
@@ -71,7 +76,8 @@ viewerApi.post('/verify-code', async (c) => {
 
 	const parsed = verifyCodeSchema.safeParse(await c.req.json());
 	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
-	const { email, code } = parsed.data;
+	const email = parsed.data.email.toLowerCase();
+	const { code } = parsed.data;
 
 	const codeHash = await hashCode(code);
 	const nowIso = new Date().toISOString();
@@ -99,7 +105,8 @@ const followSchema = z.object({ email: z.email(), personSlug: z.string().min(1) 
 viewerApi.post('/follow', async (c) => {
 	const parsed = followSchema.safeParse(await c.req.json());
 	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
-	const { email, personSlug } = parsed.data;
+	const email = parsed.data.email.toLowerCase();
+	const { personSlug } = parsed.data;
 
 	const db = getDb();
 	const person = await getPersonBySlug(db, 'public', personSlug);

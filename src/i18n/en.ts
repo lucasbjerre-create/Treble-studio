@@ -60,6 +60,7 @@ export interface Dictionary {
 		verifyButton: string;
 		verifyError: string;
 		pending: string;
+		reload: string;
 		genericError: string;
 	};
 }
@@ -123,7 +124,8 @@ export const en: Dictionary = {
 		codePlaceholder: '123456',
 		verifyButton: 'Log in',
 		verifyError: "That code didn't work - check it and try again.",
-		pending: "You're logged in. Your follow request is waiting on approval.",
+		pending: "You're logged in. Reload the page to see if you've been approved yet.",
+		reload: 'Reload',
 		genericError: 'Something went wrong - try again in a moment.'
 	}
 };

@@ -13,6 +13,7 @@ export interface FollowLoginStrings {
 	verifyButton: string;
 	verifyError: string;
 	pending: string;
+	reload: string;
 	genericError: string;
 }
 
@@ -139,7 +140,14 @@ export default function FollowLogin({ personSlug, lang, strings }: Props) {
 				</>
 			)}
 
-			{step === 'done' && <p className="hint">{strings.pending}</p>}
+			{step === 'done' && (
+				<>
+					<p className="hint">{strings.pending}</p>
+					<button type="button" onClick={() => window.location.reload()}>
+						{strings.reload}
+					</button>
+				</>
+			)}
 
 			{error && <p className="error">{error}</p>}
 		</div>

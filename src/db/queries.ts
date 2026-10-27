@@ -275,11 +275,18 @@ export async function listLegsForViewer(
  */
 export async function resolveViewerForPerson(db: Database, viewerEmail: string | null, personId: number): Promise<Viewer> {
 	if (!viewerEmail) return 'public';
+	// Lowercased defensively here too (also done at every /api/viewer/*
+	// write) - emails are stored lowercase, so an un-normalized cookie value
+	// would otherwise silently never match.
 	const rows = await db
 		.select({ id: schema.follows.id })
 		.from(schema.follows)
 		.where(
-			and(eq(schema.follows.email, viewerEmail), eq(schema.follows.personId, personId), eq(schema.follows.status, 'approved'))
+			and(
+				eq(schema.follows.email, viewerEmail.toLowerCase()),
+				eq(schema.follows.personId, personId),
+				eq(schema.follows.status, 'approved')
+			)
 		)
 		.limit(1);
 	return rows.length > 0 ? 'family' : 'public';
@@ -328,6 +335,17 @@ export interface ConfirmedCrossing {
  * purely from a confirmed-but-otherwise-entirely-family/private crossing,
  * which is exactly the kind of cross-person inference the unconfirmed-case
  * rule (never reveal a crossing exists) is also protecting against.
+ *
+ * Not called from any page yet (the crossing map marker is still unbuilt -
+ * see BUILD_PLAN milestone 6). Flagging before it is: `viewer` here is one
+ * flat tier applied to every participant's entries via entryVisibilityWhere,
+ * but milestone 5 made 'family' a per-person thing (resolveViewerForPerson,
+ * a visitor only follows specific people, not everyone). Called naively
+ * with 'family' resolved for just one participant, this would also surface
+ * the OTHER participant's family-tier entries to a visitor who never
+ * followed them. Whoever builds the crossing UI needs either a per-person
+ * viewer map here, not one flat Viewer, or to intersect this function's
+ * result with each participant's own resolved tier at the call site.
  */
 export async function listConfirmedCrossingsForViewer(
 	db: Database,

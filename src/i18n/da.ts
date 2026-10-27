@@ -59,7 +59,8 @@ export const da: Dictionary = {
 		codePlaceholder: '123456',
 		verifyButton: 'Log ind',
 		verifyError: 'Koden virkede ikke - tjek den og prøv igen.',
-		pending: 'Du er logget ind. Din anmodning om at følge venter på godkendelse.',
+		pending: 'Du er logget ind. Genindlæs siden for at se om du er blevet godkendt endnu.',
+		reload: 'Genindlæs',
 		genericError: 'Noget gik galt - prøv igen om lidt.'
 	}
 };

@@ -49,6 +49,11 @@ describe('resolveViewerForPerson', () => {
 		expect(viewer).toBe('family');
 	});
 
+	it('matches case-insensitively - a differently-cased session email still resolves to family', async () => {
+		const viewer = await resolveViewerForPerson(db(), 'Approved@Example.com', 1);
+		expect(viewer).toBe('family');
+	});
+
 	it('an approved follower of a different person stays public - following one person is not following another', async () => {
 		const viewer = await resolveViewerForPerson(db(), 'approved@example.com', 2);
 		expect(viewer).toBe('public');
