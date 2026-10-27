@@ -44,45 +44,29 @@ async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
 		.join('');
 }
 
-function looksLikeHeic(file: File): boolean {
-	const type = file.type.toLowerCase();
-	if (type === 'image/heic' || type === 'image/heif') return true;
-	// iPhones hand .heic files to the file input with an empty or generic
-	// type (application/octet-stream) often enough that the extension is
-	// the only reliable signal - same reason it's also listed in the file
-	// input's accept attribute, not just the image/* MIME wildcard.
-	const name = file.name.toLowerCase();
-	return name.endsWith('.heic') || name.endsWith('.heif');
-}
-
 /**
- * Decodes a photo file to a bitmap, converting HEIC/HEIF to JPEG first when
- * the browser can't open it directly - Chrome and Firefox have no built-in
- * HEIC decoder, unlike Safari. Tries the browser's native decode first
- * (free, and already works for HEIC in Safari/iOS) and only pulls in the
- * ~2-3MB heic2any/libheif conversion on a decode failure, so most uploads
- * never pay for it.
+ * Decodes a photo file to a bitmap, converting HEIC/HEIF first when the
+ * browser can't open it directly - Chrome and Firefox have no built-in HEIC
+ * decoder, unlike Safari. Tries the browser's native decode first (free, and
+ * already works for HEIC in Safari/iOS) and only pulls in heic-to's ~3MB
+ * libheif build on a decode failure, so most uploads never pay for it.
+ * heic-to (not heic2any) specifically because it tracks current libheif
+ * releases - recent iPhones' 10-bit/HDR HEIC photos need a decoder newer
+ * than what heic2any (last published 2023) bundles.
  */
 async function decodeToBitmap(file: File, onConverting: () => void): Promise<ImageBitmap> {
 	try {
 		return await createImageBitmap(file, { imageOrientation: 'from-image' });
 	} catch {
-		if (!looksLikeHeic(file)) {
+		const { heicTo, isHeic } = await import('heic-to');
+		if (!(await isHeic(file).catch(() => false))) {
 			throw new Error(`This browser can't open "${file.name}" - try converting it to JPEG first.`);
 		}
 		onConverting();
-		let converted: Blob | Blob[];
 		try {
-			const heic2any = (await import('heic2any')).default;
-			converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+			return await heicTo({ blob: file, type: 'bitmap', options: { imageOrientation: 'from-image' } });
 		} catch {
 			throw new Error(`Could not convert "${file.name}" from HEIC - try converting it to JPEG first.`);
-		}
-		const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
-		try {
-			return await createImageBitmap(jpegBlob, { imageOrientation: 'from-image' });
-		} catch {
-			throw new Error(`Could not open "${file.name}" after converting it from HEIC.`);
 		}
 	}
 }
