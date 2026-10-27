@@ -194,7 +194,8 @@ export default function BulkUpload() {
 				Select photos
 				<input
 					type="file"
-					accept="image/*"
+					// .heic/.heif alongside the image/* wildcard - see PhotoUpload.tsx.
+					accept="image/*,.heic,.heif"
 					multiple
 					disabled={processing}
 					onChange={(e) => {
@@ -226,6 +227,7 @@ export default function BulkUpload() {
 								{row.phase.phase === 'checking' && <span className="status">Checking for duplicates…</span>}
 								{row.phase.phase === 'creating' && <span className="status">Creating draft…</span>}
 								{row.phase.phase === 'processing' && <span className="status">Processing…</span>}
+								{row.phase.phase === 'converting' && <span className="status">Converting from HEIC…</span>}
 								{row.phase.phase === 'uploading' && <span className="status">Uploading {row.phase.progress}</span>}
 								{row.phase.phase === 'committing' && <span className="status">Saving…</span>}
 								{row.phase.phase === 'placing' && <span className="status">Guessing place…</span>}

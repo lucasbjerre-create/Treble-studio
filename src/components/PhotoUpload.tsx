@@ -27,6 +27,7 @@ interface Props {
 
 type FileStatus =
 	| { phase: 'processing' }
+	| { phase: 'converting' }
 	| { phase: 'uploading'; progress: string }
 	| { phase: 'committing' }
 	| { phase: 'done' }
@@ -105,7 +106,10 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded,
 				Add a photo
 				<input
 					type="file"
-					accept="image/*"
+					// .heic/.heif alongside the image/* wildcard - iPhones often hand
+					// HEIC files to a file input with no MIME type at all, which
+					// image/* alone doesn't match on some OSes' file pickers.
+					accept="image/*,.heic,.heif"
 					onChange={(e) => {
 						const file = e.target.files?.[0];
 						e.target.value = '';
@@ -118,6 +122,7 @@ export default function PhotoUpload({ entryId, ensureEntryId, media, onUploaded,
 				<div key={f.key} className="file-row">
 					<span>{f.name}</span>
 					{f.status.phase === 'processing' && <span>Processing…</span>}
+					{f.status.phase === 'converting' && <span>Converting from HEIC…</span>}
 					{f.status.phase === 'uploading' && <span>Uploading {f.status.progress}</span>}
 					{f.status.phase === 'committing' && <span>Saving…</span>}
 					{f.status.phase === 'done' && <span>Done</span>}
