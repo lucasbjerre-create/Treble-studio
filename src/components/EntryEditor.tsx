@@ -285,15 +285,20 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 		}
 	}
 
-	/** Toggles the selected place's studio-only starred shortcut (picker ordering only, no location data touched). */
-	async function toggleStarred() {
-		if (placeId === '' || !selectedPlace) return;
+	/**
+	 * Sets a place's studio-only starred shortcut (picker ordering + the
+	 * quick-select row below, never location data) - takes the place
+	 * explicitly rather than reading selectedPlace, since the quick-select
+	 * row's own remove button unstars a place that isn't necessarily the one
+	 * currently chosen for this entry.
+	 */
+	async function setPlaceStarred(place: Place, starred: boolean) {
 		setStarring(true);
 		try {
-			const res = await fetch(`/api/studio/places/${placeId}`, {
+			const res = await fetch(`/api/studio/places/${place.id}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ starred: !selectedPlace.starred })
+				body: JSON.stringify({ starred })
 			});
 			if (!res.ok) return;
 			const updated = (await res.json()) as Place;
@@ -426,8 +431,35 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 					</div>
 				</label>
 
-				<label>
+				<label className="full">
 					Place
+					{starredPlaces.length > 0 && (
+						<div className="place-presets">
+							{starredPlaces.map((p) => (
+								<span key={p.id} className="place-chip">
+									<button
+										type="button"
+										className={placeId === p.id ? 'place-chip-select active' : 'place-chip-select'}
+										onClick={() => {
+											setPlaceTouched(true);
+											setPlaceId(p.id);
+										}}
+									>
+										{p.label}
+									</button>
+									<button
+										type="button"
+										className="place-chip-remove"
+										aria-label={`Remove ${p.label} from quick select`}
+										onClick={() => setPlaceStarred(p, false)}
+										disabled={starring}
+									>
+										×
+									</button>
+								</span>
+							))}
+						</div>
+					)}
 					<select
 						value={placeId}
 						onChange={(e) => {
@@ -475,7 +507,11 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 							>
 								{renaming ? 'Renaming…' : 'Rename'}
 							</button>
-							<button type="button" onClick={toggleStarred} disabled={starring}>
+							<button
+								type="button"
+								onClick={() => selectedPlace && setPlaceStarred(selectedPlace, !selectedPlace.starred)}
+								disabled={starring}
+							>
 								{selectedPlace?.starred ? '★ Starred' : '☆ Star this place'}
 							</button>
 						</div>

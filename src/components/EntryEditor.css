@@ -83,6 +83,58 @@
 	color: var(--color-on-primary);
 }
 
+.place-presets {
+	display: flex;
+	gap: var(--space-2);
+	flex-wrap: wrap;
+}
+
+.place-chip {
+	display: inline-flex;
+	align-items: stretch;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-pill);
+	overflow: hidden;
+}
+
+.place-chip-select {
+	min-height: var(--touch-min);
+	padding: 0 var(--space-3);
+	background: var(--color-surface);
+	border: none;
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-small);
+	cursor: pointer;
+}
+
+.place-chip-select.active {
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+}
+
+.place-chip-remove {
+	min-width: var(--touch-min);
+	min-height: var(--touch-min);
+	background: var(--color-surface);
+	border: none;
+	border-left: 1px solid var(--color-border);
+	color: var(--color-text-muted);
+	font-size: var(--text-body);
+	line-height: 1;
+	cursor: pointer;
+}
+
+.place-chip-remove:hover {
+	color: var(--color-error);
+}
+
+.place-chip-remove:disabled {
+	color: var(--color-text-muted);
+	cursor: default;
+	opacity: 0.6;
+}
+
 .bubble-row {
 	display: flex;
 	gap: var(--space-2);
