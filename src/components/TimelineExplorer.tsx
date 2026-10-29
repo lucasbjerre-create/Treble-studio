@@ -170,7 +170,12 @@ export default function TimelineExplorer({ entries, legs, places, people, labels
 	const campusMarkersRef = useRef<Marker[]>([]);
 	const [sheetOpen, setSheetOpen] = useState(false);
 
-	const sortedEntries = [...entries].sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : 1));
+	// Stable tie-break (same comparator shape as src/lib/timeline.ts's
+	// sortByOccurredAt) - the previous version returned 1 for equal
+	// occurredAt instead of 0, which is not a valid comparator and could
+	// disagree with computeTimelineState's own ordering for same-instant
+	// entries, pointing activeIndex at the wrong slider position.
+	const sortedEntries = [...entries].sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : a.occurredAt > b.occurredAt ? 1 : 0));
 	const initialDate = readDateFromUrl() ?? sortedEntries.at(-1)?.occurredAt ?? '';
 	const [date, setDate] = useState(initialDate);
 
@@ -216,11 +221,16 @@ export default function TimelineExplorer({ entries, legs, places, people, labels
 			container: containerRef.current,
 			style: MAP_STYLE_URL,
 			center: placeCoords(places, sortedEntries.at(-1)?.placeId ?? null) ?? MAP_DEFAULT_CENTER,
-			zoom: MAP_DEFAULT_ZOOM,
-			// Two-finger pan / ctrl+scroll zoom on touch and trackpads, so a
-			// normal one-finger swipe keeps scrolling the page instead of
-			// panning the map (.claude/rules/map-and-timeline.md).
-			cooperativeGestures: true
+			zoom: MAP_DEFAULT_ZOOM
+			// cooperativeGestures (requiring ctrl+scroll to zoom, two fingers to
+			// pan on touch) used to be set here to keep a one-finger swipe
+			// scrolling the page instead of the map. Removed: this is a
+			// dedicated "Explore the route" page, not a map embedded mid-article,
+			// so a reader arriving here expects the map to respond directly to
+			// scroll/drag - confirmed live that with it on, a plain scroll-wheel
+			// produced zero zoom change at all, which is what read as "won't
+			// let you roam the map." If a map ever gets embedded somewhere it
+			// shares scroll with surrounding content, reconsider it there.
 		});
 		mapRef.current = map;
 		// e2e-test-only accessor: a WebGL canvas has no inspectable DOM content,

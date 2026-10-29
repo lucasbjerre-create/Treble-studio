@@ -1,4 +1,6 @@
 ---
+import { publicMediaUrl } from '../lib/mediaUrl';
+
 interface Props {
 	kind: 'photo' | 'clip' | 'audio' | 'pdf';
 	keyThumb: string | null;
@@ -15,20 +17,22 @@ interface Props {
 
 const { kind, keyDisplay, keyLarge, posterKey, width, height, caption, altText, peopleNote } = Astro.props;
 
-// key_* are resolved as direct src paths for now (the milestone-2 fixtures
-// are plain /fixtures/ paths under public/). Once uploads and R2 serving
-// exist (milestones 4-5), this resolves through a viewer-checked Worker
-// route instead - see src/db/seed.sql's note on the same gap.
+// A real upload's key_* is a bare R2 object key, resolved through the
+// viewer-checked /api/media route (src/worker/api/media.ts); a fixture's is
+// already a full /fixtures/ path and publicMediaUrl leaves it alone.
+const displayUrl = keyDisplay ? publicMediaUrl(keyDisplay) : null;
+const largeUrl = keyLarge ? publicMediaUrl(keyLarge) : displayUrl;
+const posterUrl = posterKey ? publicMediaUrl(posterKey) : undefined;
 const aspectRatio = width && height ? `${width} / ${height}` : '4 / 3';
 ---
 
 <figure class="media" style={`aspect-ratio: ${aspectRatio}`}>
 	{
-		kind === 'photo' && keyDisplay && (
+		kind === 'photo' && displayUrl && (
 			<img
 				class="photo"
-				src={keyDisplay}
-				srcset={`${keyDisplay} 480w, ${keyDisplay} 1280w, ${keyLarge ?? keyDisplay} 2048w`}
+				src={displayUrl}
+				srcset={`${displayUrl} 480w, ${displayUrl} 1280w, ${largeUrl} 2048w`}
 				sizes="(min-width: 768px) 60vw, 100vw"
 				alt={altText ?? ''}
 				loading="lazy"
@@ -36,10 +40,10 @@ const aspectRatio = width && height ? `${width} / ${height}` : '4 / 3';
 		)
 	}
 	{
-		kind === 'clip' && keyDisplay && (
+		kind === 'clip' && displayUrl && (
 			// Muted by default, native controls only - no autoplay, no sound
 			// unless the viewer starts it (spec section 6).
-			<video src={keyDisplay} poster={posterKey ?? undefined} muted playsinline controls />
+			<video src={displayUrl} poster={posterUrl} muted playsinline controls />
 		)
 	}
 	{caption && <figcaption>{caption}</figcaption>}

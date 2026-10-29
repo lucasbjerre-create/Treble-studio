@@ -210,6 +210,44 @@ export async function listMediaForEntry(db: Database, viewer: Viewer, entryId: n
 }
 
 /**
+ * For the public /api/media route (src/worker/api/media.ts): looks a media
+ * row up by its R2 object key (matching whichever of the four key columns
+ * it is - a request only ever carries one key, not the row's id) together
+ * with its owning entry's visibility fields. Deliberately does NOT filter by
+ * viewer here, unlike every other query in this file - the caller doesn't
+ * know which viewer tier applies until it has this row's personId (family
+ * follow status is per-person), so it resolves the viewer first and then
+ * checks src/lib/visibility.ts's isEntryVisible against the fields
+ * returned here. That pure check is the same one entryVisibilityWhere is
+ * audited to mirror (see listEntriesForViewer above), not an ad-hoc
+ * reimplementation - the two-step shape is what differs here, not the rule.
+ */
+export async function findMediaByKeyWithEntry(db: Database, key: string) {
+	const rows = await db
+		.select({
+			id: schema.media.id,
+			mime: schema.media.mime,
+			entryId: schema.media.entryId,
+			personId: schema.entries.personId,
+			status: schema.entries.status,
+			audience: schema.entries.audience,
+			publishAfter: schema.entries.publishAfter
+		})
+		.from(schema.media)
+		.innerJoin(schema.entries, eq(schema.media.entryId, schema.entries.id))
+		.where(
+			or(
+				eq(schema.media.keyThumb, key),
+				eq(schema.media.keyDisplay, key),
+				eq(schema.media.keyLarge, key),
+				eq(schema.media.posterKey, key)
+			)
+		)
+		.limit(1);
+	return rows[0];
+}
+
+/**
  * Studio-only, owner-scoped: has this person already uploaded a photo with
  * this exact sha256? Used by the bulk-upload flow to skip re-creating a
  * duplicate entry rather than silently uploading the same photo twice.

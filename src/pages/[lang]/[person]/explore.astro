@@ -12,6 +12,7 @@ import {
 	resolveViewerForPerson
 } from '../../../db/queries';
 import { isLocale, t, type Locale } from '../../../i18n/t';
+import { publicMediaUrl } from '../../../lib/mediaUrl';
 import { resolveEntryText } from '../../../lib/translation';
 
 const { lang: rawLang, person: personSlug } = Astro.params;
@@ -55,7 +56,7 @@ const cards = await Promise.all(
 			occurredAt: entry.occurredAt,
 			title: resolved.title,
 			dek: resolved.dek,
-			thumb: media[0]?.keyThumb ?? null,
+			thumb: media[0]?.keyThumb ? publicMediaUrl(media[0].keyThumb) : null,
 			thumbAlt: media[0]?.altText ?? ''
 		};
 	})
