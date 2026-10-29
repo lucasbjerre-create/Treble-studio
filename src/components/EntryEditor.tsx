@@ -33,6 +33,8 @@ export interface InitialEntry {
 	timezone: string;
 	consentStatus: string;
 	status: string;
+	/** Set when occurredAt is only a guess (e.g. BulkUpload fell back to "now" because no photo date could be detected) - shows the "couldn't detect" warning right away instead of waiting for a photo upload within this session to trigger it. */
+	occurredAtUncertain?: boolean;
 }
 
 interface Props {
@@ -100,6 +102,11 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 	// Whether Lucas has touched the date himself - once he has, a photo's
 	// EXIF capture time never overwrites it, even if he adds more photos.
 	const [occurredAtTouched, setOccurredAtTouched] = useState(initialEntry !== null);
+	// True when occurredAtLocal is only a guess, never confirmed against a
+	// photo's own EXIF date - shows a warning instead of letting an
+	// undetectable date pass for a real one. Cleared the moment Lucas
+	// touches the date himself (same event that sets occurredAtTouched).
+	const [dateUncertain, setDateUncertain] = useState(initialEntry?.occurredAtUncertain ?? false);
 	const [timezone, setTimezone] = useState(
 		initialEntry?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 	);
@@ -384,8 +391,17 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 				media={media}
 				onUploaded={(item, gps) => {
 					setMedia((prev) => [...prev, item]);
-					if (!occurredAtTouched && item.capturedAt) {
-						setOccurredAtLocal(isoToLocalInputValue(item.capturedAt));
+					if (!occurredAtTouched) {
+						if (item.capturedAt) {
+							setOccurredAtLocal(isoToLocalInputValue(item.capturedAt));
+							setDateUncertain(false);
+						} else {
+							// No source at all (see mediaUpload.ts's capturedAtIso) -
+							// occurredAtLocal stays whatever it already was (nowLocalInputValue
+							// for a brand new entry), flagged so Lucas knows to check it
+							// rather than assuming it came from the photo.
+							setDateUncertain(true);
+						}
 					}
 					void detectPlaceFromGps(gps);
 					detectTimezoneFromGps(gps);
@@ -613,9 +629,13 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 						value={occurredAtLocal}
 						onChange={(e) => {
 							setOccurredAtTouched(true);
+							setDateUncertain(false);
 							setOccurredAtLocal(e.target.value);
 						}}
 					/>
+					{dateUncertain && (
+						<span className="warning">Couldn't detect this photo's date - check it's right.</span>
+					)}
 				</label>
 
 				<label className="full">

@@ -21,7 +21,7 @@ type FilePhase =
 	| { phase: 'creating' }
 	| UploadProgress
 	| { phase: 'placing' }
-	| { phase: 'done'; entryId: number; occurredAt: string; placeLabel: string | null }
+	| { phase: 'done'; entryId: number; occurredAt: string; dateDetected: boolean; placeLabel: string | null }
 	| { phase: 'error'; message: string; retry: () => void };
 
 interface FileRow {
@@ -35,6 +35,7 @@ interface FileRow {
 interface FileProgress {
 	entryId: number;
 	occurredAt: string;
+	dateDetected: boolean;
 	timezone: string;
 	metadata: PhotoMetadata;
 }
@@ -42,7 +43,15 @@ interface FileProgress {
 type ProcessResult =
 	| { status: 'duplicate'; entryId: number }
 	| { status: 'error' }
-	| { status: 'done'; entryId: number; occurredAt: string; timezone: string; placeId: number | null; media: UploadedMedia };
+	| {
+			status: 'done';
+			entryId: number;
+			occurredAt: string;
+			dateDetected: boolean;
+			timezone: string;
+			placeId: number | null;
+			media: UploadedMedia;
+	  };
 
 /** The first photo to finish, opened for writing immediately while the rest of the batch keeps uploading behind it. */
 interface PrimaryDraft {
@@ -128,11 +137,12 @@ export default function BulkUpload() {
 			const saved = progressByKey.current.get(key);
 			let entryId: number;
 			let occurredAt: string;
+			let dateDetected: boolean;
 			let timezone: string;
 			let metadata: PhotoMetadata;
 
 			if (saved) {
-				({ entryId, occurredAt, timezone, metadata } = saved);
+				({ entryId, occurredAt, dateDetected, timezone, metadata } = saved);
 			} else {
 				setPhase(key, { phase: 'reading' });
 				// Read EXIF and hash before anything else touches the file (studio.md).
@@ -166,7 +176,12 @@ export default function BulkUpload() {
 				// *this* runtime's local timezone (see mediaUpload.ts) - without
 				// that, a bulk upload done from a different timezone than the
 				// photo was taken in would silently mis-date every draft it creates.
-				occurredAt = capturedAtIso(metadata.exif, metadata.gps) ?? new Date().toISOString();
+				// Falls back to "now" only when nothing at all could be detected -
+				// dateDetected carries that fact through so the UI can say so,
+				// instead of a wrong-looking date with no explanation.
+				const detectedAt = capturedAtIso(metadata.exif, metadata.gps);
+				dateDetected = detectedAt !== null;
+				occurredAt = detectedAt ?? new Date().toISOString();
 
 				const entryRes = await fetch('/api/studio/entries', {
 					method: 'POST',
@@ -192,7 +207,7 @@ export default function BulkUpload() {
 				if (!entryRes.ok) throw new Error('Could not create a draft entry');
 				({ id: entryId } = (await entryRes.json()) as { id: number });
 
-				progressByKey.current.set(key, { entryId, occurredAt, timezone, metadata });
+				progressByKey.current.set(key, { entryId, occurredAt, dateDetected, timezone, metadata });
 			}
 
 			const { media, gps } = await uploadPhotoToEntry(file, entryId, metadata, (status) => setPhase(key, status));
@@ -215,8 +230,8 @@ export default function BulkUpload() {
 				}).catch(() => undefined);
 			}
 
-			setPhase(key, { phase: 'done', entryId, occurredAt, placeLabel });
-			return { status: 'done', entryId, occurredAt, timezone, placeId, media };
+			setPhase(key, { phase: 'done', entryId, occurredAt, dateDetected, placeLabel });
+			return { status: 'done', entryId, occurredAt, dateDetected, timezone, placeId, media };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Upload failed';
 			setPhase(key, { phase: 'error', message, retry: () => runFile(file, key) });
@@ -250,7 +265,8 @@ export default function BulkUpload() {
 					occurredAt: result.occurredAt,
 					timezone: result.timezone,
 					consentStatus: 'not_needed',
-					status: 'draft'
+					status: 'draft',
+					occurredAtUncertain: !result.dateDetected
 				},
 				initialMedia: [{ ...result.media, people: [] }]
 			});
@@ -357,6 +373,9 @@ export default function BulkUpload() {
 										Draft ready, {row.phase.occurredAt.slice(0, 10)}
 										{row.phase.placeLabel ? `, ${row.phase.placeLabel}` : ''} -{' '}
 										<a href={`/studio/entries/${row.phase.entryId}`}>finish it</a>
+										{!row.phase.dateDetected && (
+											<span className="warning"> - couldn't detect this photo's date, check it</span>
+										)}
 									</span>
 								)}
 								{row.phase.phase === 'error' && (

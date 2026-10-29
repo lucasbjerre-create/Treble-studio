@@ -72,3 +72,23 @@ export function zonedWallClockToUtc(components: WallClockComponents, timeZone: s
 export function correctExifDateForTimeZone(exifrDate: Date, timeZone: string): Date {
 	return zonedWallClockToUtc(naiveComponentsFromLocalDate(exifrDate), timeZone);
 }
+
+/**
+ * Combines EXIF's GPSDateStamp ("YYYY:MM:DD") and GPSTimeStamp
+ * ([hour, minute, second]) into the correct UTC instant directly - no
+ * timezone guessing needed at all, unlike DateTimeOriginal. Both GPS fields
+ * are always UTC per the EXIF spec, by construction of how GPS receivers
+ * report time, regardless of the camera's own clock or timezone setting.
+ * The single most reliable capture-time source when a camera writes it -
+ * not every camera does, which is why callers try this first and fall back
+ * rather than relying on it alone. Returns null for anything that doesn't
+ * look like a valid pair, rather than guessing.
+ */
+export function gpsTimestampToUtc(dateStamp: unknown, timeStamp: unknown): Date | null {
+	if (typeof dateStamp !== 'string' || !Array.isArray(timeStamp) || timeStamp.length < 3) return null;
+	const [year, month, day] = dateStamp.split(':').map(Number);
+	const [hour, minute, second] = timeStamp.map(Number);
+	if ([year, month, day, hour, minute, second].some((n) => !Number.isFinite(n))) return null;
+	const ms = Date.UTC(year, month - 1, day, hour, minute, second);
+	return Number.isNaN(ms) ? null : new Date(ms);
+}

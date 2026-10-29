@@ -8,7 +8,7 @@
 import exifr from 'exifr';
 import { resizeToWebp } from './media';
 import { timezoneFromGps } from './timezoneFromGps';
-import { correctExifDateForTimeZone } from './zonedTime';
+import { correctExifDateForTimeZone, gpsTimestampToUtc } from './zonedTime';
 
 export interface PhotoGpsHint {
 	latitude: number | null;
@@ -91,29 +91,47 @@ export async function readPhotoMetadata(file: File): Promise<PhotoMetadata> {
 }
 
 /**
- * The capture instant as a correct UTC ISO string, or null when the photo
- * carries no DateTimeOriginal at all. exifr parses that EXIF tag (naive
- * wall-clock text, no timezone of its own) using *this runtime's* local
- * timezone - only right by coincidence when the uploading browser happens
- * to be set to the same timezone the photo was taken in. Corrects it using
- * the photo's own GPS-derived timezone instead (src/lib/zonedTime.ts),
- * falling back to the browser's timezone only when there's no GPS to guess
- * from - the same guess exifr was implicitly making anyway, so nothing
- * regresses for a GPS-less photo.
+ * A Date exifr parsed from an EXIF date tag is always built via local
+ * year/month/day plus local setHours/setMinutes/setSeconds (its own `ze`
+ * function, see zonedTime.ts's header comment) and needs the naive-local
+ * correction. When exifr instead gives up and hands back the raw, unparsed
+ * string (a malformed tag), this falls back to a plain parse with no
+ * correction - that string's format is unknown, so there's no safe way to
+ * tell whether it already carries its own offset (in which case correcting
+ * it again would be wrong) or not.
+ */
+function correctedLocalDate(raw: unknown, timeZone: string): Date | null {
+	if (!raw) return null;
+	if (raw instanceof Date) return correctExifDateForTimeZone(raw, timeZone);
+	const fallback = new Date(raw as string | number);
+	return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+/**
+ * The capture instant as a correct UTC ISO string, or null when nothing
+ * usable was found at all - callers should treat null as "couldn't detect
+ * this photo's date" and say so, not silently default to "now".
+ *
+ * Tries three sources, most reliable first:
+ * 1. GPSDateStamp + GPSTimeStamp - always true UTC per the EXIF spec, no
+ *    timezone guessing needed, but not every camera writes it.
+ * 2. DateTimeOriginal (when the shutter released), corrected for the
+ *    photo's own GPS-derived timezone (src/lib/zonedTime.ts) - exifr parses
+ *    this naive wall-clock tag using *this runtime's* local timezone, only
+ *    right by coincidence when the uploading browser happens to be set to
+ *    the same timezone the photo was taken in.
+ * 3. CreateDate (when the file was written) - the same correction, for
+ *    cameras that only set this one.
  */
 export function capturedAtIso(exif: Record<string, unknown> | undefined, gps: { latitude: number; longitude: number } | undefined): string | null {
-	const raw = exif?.DateTimeOriginal;
-	if (!raw) return null;
-	if (!(raw instanceof Date)) {
-		// exifr couldn't parse it into a Date (a malformed tag) - best effort,
-		// same fallback this project used before this fix existed.
-		const fallback = new Date(raw as string | number);
-		return Number.isNaN(fallback.getTime()) ? null : fallback.toISOString();
-	}
+	const gpsUtc = gpsTimestampToUtc(exif?.GPSDateStamp, exif?.GPSTimeStamp);
+	if (gpsUtc) return gpsUtc.toISOString();
+
 	const timeZone =
 		timezoneFromGps({ latitude: gps?.latitude ?? null, longitude: gps?.longitude ?? null }) ??
 		Intl.DateTimeFormat().resolvedOptions().timeZone;
-	return correctExifDateForTimeZone(raw, timeZone).toISOString();
+	const date = correctedLocalDate(exif?.DateTimeOriginal, timeZone) ?? correctedLocalDate(exif?.CreateDate, timeZone);
+	return date ? date.toISOString() : null;
 }
 
 /**

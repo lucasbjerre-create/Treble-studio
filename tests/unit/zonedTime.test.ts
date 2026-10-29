@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { correctExifDateForTimeZone, naiveComponentsFromLocalDate, zonedWallClockToUtc } from '../../src/lib/zonedTime';
+import {
+	correctExifDateForTimeZone,
+	gpsTimestampToUtc,
+	naiveComponentsFromLocalDate,
+	zonedWallClockToUtc
+} from '../../src/lib/zonedTime';
 
 const wallClock = (year: number, month: number, day: number, hour: number, minute: number, second = 0) => ({
 	year,
@@ -59,5 +64,28 @@ describe('correctExifDateForTimeZone', () => {
 		// setHours/setMinutes/setSeconds (src/lib/zonedTime.ts's header comment).
 		const exifrDate = new Date(2026, 7, 27, 15, 11, 0);
 		expect(correctExifDateForTimeZone(exifrDate, 'Asia/Singapore').toISOString()).toBe('2026-08-27T07:11:00.000Z');
+	});
+});
+
+describe('gpsTimestampToUtc', () => {
+	it('combines GPSDateStamp and GPSTimeStamp directly as UTC - no timezone involved at all', () => {
+		expect(gpsTimestampToUtc('2026:08:27', [15, 11, 30])?.toISOString()).toBe('2026-08-27T15:11:30.000Z');
+	});
+
+	it('returns null when GPSDateStamp is missing', () => {
+		expect(gpsTimestampToUtc(undefined, [15, 11, 30])).toBeNull();
+	});
+
+	it('returns null when GPSTimeStamp is missing or not an array', () => {
+		expect(gpsTimestampToUtc('2026:08:27', undefined)).toBeNull();
+		expect(gpsTimestampToUtc('2026:08:27', 'not-an-array')).toBeNull();
+	});
+
+	it('returns null for a malformed date stamp', () => {
+		expect(gpsTimestampToUtc('not-a-date', [15, 11, 30])).toBeNull();
+	});
+
+	it('returns null for a short time stamp array', () => {
+		expect(gpsTimestampToUtc('2026:08:27', [15, 11])).toBeNull();
 	});
 });
