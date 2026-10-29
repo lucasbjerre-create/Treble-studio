@@ -65,5 +65,32 @@ export const da: Dictionary = {
 		pending: 'Du er logget ind. Genindlæs siden for at se om du er blevet godkendt endnu.',
 		reload: 'Genindlæs',
 		genericError: 'Noget gik galt - prøv igen om lidt.'
+	},
+	slideshow: {
+		navLink: 'Diasshow',
+		play: 'Afspil',
+		pause: 'Pause',
+		previous: 'Forrige',
+		next: 'Næste',
+		close: 'Luk',
+		speedLabel: 'Hastighed',
+		speedSlow: 'Langsom',
+		speedNormal: 'Normal',
+		speedFast: 'Hurtig',
+		collageLabel: 'Fotos per billede',
+		collageAuto: 'Auto',
+		collageOne: '1',
+		collageTwo: '2',
+		collageThree: '3',
+		collageFour: '4',
+		shuffle: 'Bland',
+		fullscreenEnter: 'Fuld skærm',
+		fullscreenExit: 'Afslut fuld skærm',
+		loading: 'Indlæser fotos…',
+		empty: 'Ingen fotos at vise endnu.',
+		backToProfile: 'Tilbage til profilen',
+		error: 'Kunne ikke indlæse flere fotos.',
+		retry: 'Prøv igen',
+		progress: '{current} af {total}'
 	}
 };

@@ -99,7 +99,10 @@ const explorerPeople = { [person.id]: { displayName: person.displayName, seat: p
 	altPath={`/${lang === 'en' ? 'da' : 'en'}/${personSlug}/explore`}
 >
 	<main class="explore">
-		<h1>{dict.explore.title}</h1>
+		<div class="explore-heading">
+			<h1>{dict.explore.title}</h1>
+			<a class="slideshow-link" href={`/${lang}/${personSlug}/slideshow`}>{dict.slideshow.navLink}</a>
+		</div>
 		<p class="non-map-alternative"><a href={`/${lang}/journal`}>{dict.explore.nonMapAlternative}</a></p>
 
 		<TimelineExplorer
@@ -148,10 +151,37 @@ const explorerPeople = { [person.id]: { displayName: person.displayName, seat: p
 		padding: var(--space-6) var(--grid-margin) var(--space-12);
 	}
 
+	.explore-heading {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--space-4);
+		flex-wrap: wrap;
+	}
+
 	h1 {
 		font-family: var(--font-serif);
 		font-size: var(--text-h1);
 		margin: 0 0 var(--space-2);
+	}
+
+	.slideshow-link {
+		font-family: var(--font-sans);
+		font-size: var(--text-ui);
+		font-weight: var(--weight-medium);
+		color: var(--color-text);
+		text-decoration: none;
+		min-height: var(--touch-min);
+		display: inline-flex;
+		align-items: center;
+		padding: 0 var(--space-4);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-pill);
+	}
+
+	.slideshow-link:hover {
+		color: var(--color-link);
+		border-color: var(--color-link);
 	}
 
 	.non-map-alternative {

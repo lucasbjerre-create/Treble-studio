@@ -68,6 +68,34 @@ export interface Dictionary {
 		reload: string;
 		genericError: string;
 	};
+	slideshow: {
+		navLink: string;
+		play: string;
+		pause: string;
+		previous: string;
+		next: string;
+		close: string;
+		speedLabel: string;
+		speedSlow: string;
+		speedNormal: string;
+		speedFast: string;
+		collageLabel: string;
+		collageAuto: string;
+		collageOne: string;
+		collageTwo: string;
+		collageThree: string;
+		collageFour: string;
+		shuffle: string;
+		fullscreenEnter: string;
+		fullscreenExit: string;
+		loading: string;
+		empty: string;
+		backToProfile: string;
+		error: string;
+		retry: string;
+		/** "{current}" and "{total}" are replaced in code - not real tokens for a translation tool, but this project has none yet. */
+		progress: string;
+	};
 }
 
 export const en: Dictionary = {
@@ -135,5 +163,32 @@ export const en: Dictionary = {
 		pending: "You're logged in. Reload the page to see if you've been approved yet.",
 		reload: 'Reload',
 		genericError: 'Something went wrong - try again in a moment.'
+	},
+	slideshow: {
+		navLink: 'Slideshow',
+		play: 'Play',
+		pause: 'Pause',
+		previous: 'Previous',
+		next: 'Next',
+		close: 'Close',
+		speedLabel: 'Speed',
+		speedSlow: 'Slow',
+		speedNormal: 'Normal',
+		speedFast: 'Fast',
+		collageLabel: 'Photos per slide',
+		collageAuto: 'Auto',
+		collageOne: '1',
+		collageTwo: '2',
+		collageThree: '3',
+		collageFour: '4',
+		shuffle: 'Shuffle',
+		fullscreenEnter: 'Fullscreen',
+		fullscreenExit: 'Exit fullscreen',
+		loading: 'Loading photos…',
+		empty: 'No photos to show yet.',
+		backToProfile: 'Back to profile',
+		error: "Couldn't load more photos.",
+		retry: 'Try again',
+		progress: '{current} of {total}'
 	}
 };

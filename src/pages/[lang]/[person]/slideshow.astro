@@ -1,0 +1,74 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Slideshow from '../../../components/Slideshow.tsx';
+import { getDb } from '../../../db/client';
+import { getPersonBySlug, listMediaForPersonViewer, resolveViewerForPerson } from '../../../db/queries';
+import { isLocale, t, type Locale } from '../../../i18n/t';
+
+const { lang: rawLang, person: personSlug } = Astro.params;
+if (!rawLang || !isLocale(rawLang) || !personSlug) {
+	return new Response('Not found', { status: 404 });
+}
+const lang = rawLang as Locale;
+const dict = t(lang);
+const otherLang: Locale = lang === 'en' ? 'da' : 'en';
+
+const db = getDb();
+const now = new Date().toISOString();
+
+const person = await getPersonBySlug(db, 'public', personSlug);
+if (!person) {
+	return new Response('Not found', { status: 404 });
+}
+
+// Same per-person follower resolution every other page on this person uses
+// (src/db/queries.ts) - a visitor following Anna never sees Lucas's
+// family-tier photos through this route either.
+const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
+const firstPage = await listMediaForPersonViewer(db, viewer, person.id, now);
+
+const profileHref = `/${lang}/${personSlug}/explore`;
+---
+
+<BaseLayout
+	lang={lang}
+	title={`${dict.slideshow.navLink} - ${person.displayName} - ${dict.siteTitle}`}
+	altPath={`/${otherLang}/${personSlug}/slideshow`}
+>
+	{
+		firstPage.items.length === 0 ? (
+			<main class="slideshow-empty">
+				<p>{dict.slideshow.empty}</p>
+				<a href={profileHref}>{dict.slideshow.backToProfile}</a>
+			</main>
+		) : (
+			<Slideshow
+				client:only="react"
+				personSlug={personSlug}
+				profileHref={profileHref}
+				initialPhotos={firstPage.items}
+				initialHasMore={firstPage.hasMore}
+				strings={dict.slideshow}
+			/>
+		)
+	}
+</BaseLayout>
+
+<style>
+	.slideshow-empty {
+		max-width: 32rem;
+		margin: var(--space-16) auto;
+		padding: 0 var(--grid-margin);
+		text-align: center;
+		font-family: var(--font-sans);
+	}
+
+	.slideshow-empty p {
+		color: var(--color-text-muted);
+		margin: 0 0 var(--space-4);
+	}
+
+	.slideshow-empty a {
+		color: var(--color-link);
+	}
+</style>
