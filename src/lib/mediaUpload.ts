@@ -7,6 +7,8 @@
 // upload each size, then commit).
 import exifr from 'exifr';
 import { resizeToWebp } from './media';
+import { timezoneFromGps } from './timezoneFromGps';
+import { correctExifDateForTimeZone } from './zonedTime';
 
 export interface PhotoGpsHint {
 	latitude: number | null;
@@ -89,6 +91,32 @@ export async function readPhotoMetadata(file: File): Promise<PhotoMetadata> {
 }
 
 /**
+ * The capture instant as a correct UTC ISO string, or null when the photo
+ * carries no DateTimeOriginal at all. exifr parses that EXIF tag (naive
+ * wall-clock text, no timezone of its own) using *this runtime's* local
+ * timezone - only right by coincidence when the uploading browser happens
+ * to be set to the same timezone the photo was taken in. Corrects it using
+ * the photo's own GPS-derived timezone instead (src/lib/zonedTime.ts),
+ * falling back to the browser's timezone only when there's no GPS to guess
+ * from - the same guess exifr was implicitly making anyway, so nothing
+ * regresses for a GPS-less photo.
+ */
+export function capturedAtIso(exif: Record<string, unknown> | undefined, gps: { latitude: number; longitude: number } | undefined): string | null {
+	const raw = exif?.DateTimeOriginal;
+	if (!raw) return null;
+	if (!(raw instanceof Date)) {
+		// exifr couldn't parse it into a Date (a malformed tag) - best effort,
+		// same fallback this project used before this fix existed.
+		const fallback = new Date(raw as string | number);
+		return Number.isNaN(fallback.getTime()) ? null : fallback.toISOString();
+	}
+	const timeZone =
+		timezoneFromGps({ latitude: gps?.latitude ?? null, longitude: gps?.longitude ?? null }) ??
+		Intl.DateTimeFormat().resolvedOptions().timeZone;
+	return correctExifDateForTimeZone(raw, timeZone).toISOString();
+}
+
+/**
  * Resizes/strips to three WebP sizes, presigns, uploads each size, then
  * commits the media row against an already-created entryId. Takes the
  * metadata already read by readPhotoMetadata rather than re-reading the
@@ -158,7 +186,7 @@ export async function uploadPhotoToEntry(
 			width,
 			height,
 			bytes: blobs.large.size,
-			capturedAt: exif?.DateTimeOriginal ? new Date(exif.DateTimeOriginal as string | number | Date).toISOString() : null,
+			capturedAt: capturedAtIso(exif, gps),
 			sha256,
 			exifJson: exif ? JSON.stringify(exif) : null
 		})

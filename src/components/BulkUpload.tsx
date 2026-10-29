@@ -4,6 +4,7 @@ import { DEFAULT_AUDIENCE } from '../config/site';
 import EntryEditor, { type InitialEntry } from './EntryEditor';
 import { findOrCreatePlaceFromGps, type PlaceLike } from '../lib/placeFromGps';
 import {
+	capturedAtIso,
 	readPhotoMetadata,
 	uploadPhotoToEntry,
 	type PhotoMetadata,
@@ -154,9 +155,6 @@ export default function BulkUpload() {
 				}
 
 				setPhase(key, { phase: 'creating' });
-				occurredAt = metadata.exif?.DateTimeOriginal
-					? new Date(metadata.exif.DateTimeOriginal as string | number | Date).toISOString()
-					: new Date().toISOString();
 				// From the photo's own GPS, not this phone's clock - a Danish
 				// phone travelling in the US must not tag a Danish photo as US
 				// time. Falls back to the phone's timezone only when the photo
@@ -164,6 +162,11 @@ export default function BulkUpload() {
 				timezone =
 					timezoneFromGps({ latitude: metadata.gps?.latitude ?? null, longitude: metadata.gps?.longitude ?? null }) ??
 					Intl.DateTimeFormat().resolvedOptions().timeZone;
+				// capturedAtIso corrects for exifr parsing DateTimeOriginal in
+				// *this* runtime's local timezone (see mediaUpload.ts) - without
+				// that, a bulk upload done from a different timezone than the
+				// photo was taken in would silently mis-date every draft it creates.
+				occurredAt = capturedAtIso(metadata.exif, metadata.gps) ?? new Date().toISOString();
 
 				const entryRes = await fetch('/api/studio/entries', {
 					method: 'POST',
