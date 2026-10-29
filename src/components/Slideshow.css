@@ -1,11 +1,20 @@
+/*
+ * Deliberately NOT --color-surface-inverse/--color-text-inverse: those role
+ * tokens flip with the site's own light/dark theme (in dark mode, "inverse"
+ * of a dark surface is light), which would make the slideshow backdrop light
+ * exactly when the rest of the site is dark. A full-screen photo viewer
+ * reads best as a consistently dark, cinematic frame regardless of site
+ * theme (the usual lightbox convention), so this uses fixed brand-navy/paper
+ * values instead of theme-relative ones.
+ */
 .slideshow {
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-4);
 	min-height: calc(100vh - var(--nav-height, 0px));
 	padding: var(--space-4) var(--grid-margin) var(--space-6);
-	background: var(--color-surface-inverse);
-	color: var(--color-text-inverse);
+	background: var(--adj-navy);
+	color: var(--neutral-optic);
 }
 
 .slideshow:fullscreen,
@@ -67,7 +76,7 @@
 	max-height: 80vh;
 	overflow: hidden;
 	border-radius: var(--radius-sm);
-	background: var(--color-surface-sunken);
+	background: var(--adj-slate);
 	animation: slideshow-fade var(--slideshow-transition, 360ms) ease-out;
 }
 
@@ -83,7 +92,7 @@
 	width: 100%;
 	height: 100%;
 	min-height: 8rem;
-	background: var(--color-surface-sunken);
+	background: var(--adj-slate);
 }
 
 .slideshow-slot figcaption {
@@ -94,7 +103,7 @@
 	padding: var(--space-2) var(--space-3);
 	font-family: var(--font-sans);
 	font-size: var(--text-small);
-	color: var(--color-text-inverse);
+	color: var(--neutral-optic);
 	background: linear-gradient(to top, rgb(0 0 0 / 0.45), transparent);
 }
 
@@ -117,7 +126,7 @@
 	text-align: center;
 	font-family: var(--font-mono);
 	font-size: var(--text-small);
-	color: var(--color-text-inverse);
+	color: var(--neutral-optic);
 	opacity: 0.7;
 }
 
@@ -128,16 +137,16 @@
 	gap: var(--space-3);
 	font-family: var(--font-sans);
 	font-size: var(--text-small);
-	color: var(--color-text-inverse);
+	color: var(--neutral-optic);
 }
 
 .slideshow-banner button {
 	min-height: var(--touch-min);
 	padding: 0 var(--space-3);
-	border: 1px solid var(--color-border-strong);
+	border: 1px solid var(--adj-periwinkle);
 	border-radius: var(--radius-pill);
 	background: transparent;
-	color: var(--color-text-inverse);
+	color: var(--neutral-optic);
 	cursor: pointer;
 }
 
@@ -157,7 +166,7 @@
 	border: 1px solid var(--adj-periwinkle);
 	border-radius: var(--radius-pill);
 	background: transparent;
-	color: var(--color-text-inverse);
+	color: var(--neutral-optic);
 	font-family: var(--font-sans);
 	font-size: var(--text-ui);
 	cursor: pointer;
@@ -173,13 +182,13 @@
 }
 
 .slideshow-controls button[aria-pressed='true'] {
-	background: var(--color-primary);
-	border-color: var(--color-primary);
+	background: var(--treble-smu);
+	border-color: var(--treble-smu);
 }
 
 .slideshow-controls button:focus-visible,
 .slideshow-close:focus-visible {
-	outline: 2px solid var(--color-focus);
+	outline: 2px solid var(--adj-chambray);
 	outline-offset: 2px;
 }
 
@@ -189,7 +198,7 @@
 	gap: var(--space-2);
 	font-family: var(--font-sans);
 	font-size: var(--text-small);
-	color: var(--color-text-inverse);
+	color: var(--neutral-optic);
 }
 
 .slideshow-field select {
@@ -197,8 +206,8 @@
 	padding: 0 var(--space-2);
 	border: 1px solid var(--adj-periwinkle);
 	border-radius: var(--radius-sm);
-	background: var(--color-surface-inverse);
-	color: var(--color-text-inverse);
+	background: var(--adj-navy);
+	color: var(--neutral-optic);
 	font-family: var(--font-sans);
 	font-size: var(--text-ui);
 }

@@ -42,19 +42,25 @@ const profileHref = `/${lang}/${personSlug}/explore`;
 				<a href={profileHref}>{dict.slideshow.backToProfile}</a>
 			</main>
 		) : (
-			<Slideshow
-				client:only="react"
-				personSlug={personSlug}
-				profileHref={profileHref}
-				initialPhotos={firstPage.items}
-				initialHasMore={firstPage.hasMore}
-				strings={dict.slideshow}
-			/>
+			<main class="slideshow-main">
+				<Slideshow
+					client:only="react"
+					personSlug={personSlug}
+					profileHref={profileHref}
+					initialPhotos={firstPage.items}
+					initialHasMore={firstPage.hasMore}
+					strings={dict.slideshow}
+				/>
+			</main>
 		)
 	}
 </BaseLayout>
 
 <style>
+	.slideshow-main {
+		display: block;
+	}
+
 	.slideshow-empty {
 		max-width: 32rem;
 		margin: var(--space-16) auto;
