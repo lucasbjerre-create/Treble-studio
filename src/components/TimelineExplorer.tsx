@@ -381,9 +381,10 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 				const el = document.createElement('div');
 				el.className = 'campus-marker';
 				el.title = campus.nameEn;
-				// Mask rather than <img src>: the glyph SVGs use stroke="currentColor",
-				// which only resolves against the host page's styles through a CSS
-				// mask, not inside an externally-loaded <img> document.
+				// Mask rather than <img src>: a CSS mask reduces the glyph (SVG or
+				// PNG) to its alpha shape and fills it with the marker's own
+				// color, so every campus glyph reads as one flat tint instead of
+				// carrying its source file's own colors.
 				const glyph = document.createElement('span');
 				glyph.className = 'campus-marker-glyph';
 				glyph.style.maskImage = `url(${campus.glyph})`;

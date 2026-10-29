@@ -18,7 +18,7 @@ export const CAMPUSES: Campus[] = [
 		code: 'RDU',
 		lon: -79.0469,
 		lat: 35.9049,
-		glyph: '/brand/icons/campus_chapel-hill.svg'
+		glyph: '/brand/icons/campus_chapel-hill.png'
 	},
 	{
 		id: 'copenhagen',
@@ -27,7 +27,7 @@ export const CAMPUSES: Campus[] = [
 		code: 'CPH',
 		lon: 12.5292,
 		lat: 55.6814,
-		glyph: '/brand/icons/campus_copenhagen.svg'
+		glyph: '/brand/icons/campus_copenhagen.png'
 	},
 	{
 		id: 'singapore',
@@ -36,6 +36,6 @@ export const CAMPUSES: Campus[] = [
 		code: 'SIN',
 		lon: 103.85,
 		lat: 1.2966,
-		glyph: '/brand/icons/campus_singapore.svg'
+		glyph: '/brand/icons/campus_singapore.png'
 	}
 ];
