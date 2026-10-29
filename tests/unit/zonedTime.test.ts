@@ -68,8 +68,16 @@ describe('correctExifDateForTimeZone', () => {
 });
 
 describe('gpsTimestampToUtc', () => {
-	it('combines GPSDateStamp and GPSTimeStamp directly as UTC - no timezone involved at all', () => {
+	it('combines GPSDateStamp and a raw [h,m,s] GPSTimeStamp array directly as UTC - no timezone involved at all', () => {
 		expect(gpsTimestampToUtc('2026:08:27', [15, 11, 30])?.toISOString()).toBe('2026-08-27T15:11:30.000Z');
+	});
+
+	it('also accepts the "H:MM:SS.ss" string exifr actually hands back (its default GPSTimeStamp reviver joins the raw array with colons) - the real shape in production, not the array', () => {
+		expect(gpsTimestampToUtc('2026:08:27', '15:11:30.46')?.toISOString()).toBe('2026-08-27T15:11:30.460Z');
+	});
+
+	it('handles the string form\'s un-padded hour (e.g. "2:33:44.54" for 2am), the exact shape exifr produced for a real photo', () => {
+		expect(gpsTimestampToUtc('2026:10:05', '2:33:44.54')?.toISOString()).toBe('2026-10-05T02:33:44.540Z');
 	});
 
 	it('returns null when GPSDateStamp is missing', () => {

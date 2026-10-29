@@ -83,12 +83,24 @@ export function correctExifDateForTimeZone(exifrDate: Date, timeZone: string): D
  * not every camera does, which is why callers try this first and fall back
  * rather than relying on it alone. Returns null for anything that doesn't
  * look like a valid pair, rather than guessing.
+ *
+ * timeStamp comes in as either a [hour, minute, second] array (the raw EXIF
+ * rationals) or a "H:MM:SS.ss" string - exifr's default reviver for
+ * GPSTimeStamp (tiff-revivers.mjs) joins the raw array with colons, so in
+ * practice every real photo hands this function a string, never the array.
  */
 export function gpsTimestampToUtc(dateStamp: unknown, timeStamp: unknown): Date | null {
-	if (typeof dateStamp !== 'string' || !Array.isArray(timeStamp) || timeStamp.length < 3) return null;
+	if (typeof dateStamp !== 'string') return null;
+	const parts = Array.isArray(timeStamp) ? timeStamp : typeof timeStamp === 'string' ? timeStamp.split(':') : null;
+	if (!parts || parts.length < 3) return null;
 	const [year, month, day] = dateStamp.split(':').map(Number);
-	const [hour, minute, second] = timeStamp.map(Number);
-	if ([year, month, day, hour, minute, second].some((n) => !Number.isFinite(n))) return null;
-	const ms = Date.UTC(year, month - 1, day, hour, minute, second);
+	const [hour, minute, rawSecond] = parts.map(Number);
+	if ([year, month, day, hour, minute, rawSecond].some((n) => !Number.isFinite(n))) return null;
+	// GPS seconds commonly carry a fractional part (e.g. "44.54") - Date.UTC's
+	// seconds argument silently truncates that to a whole second rather than
+	// rounding into milliseconds, so it's split out and passed explicitly.
+	const second = Math.trunc(rawSecond);
+	const milliseconds = Math.round((rawSecond - second) * 1000);
+	const ms = Date.UTC(year, month - 1, day, hour, minute, second, milliseconds);
 	return Number.isNaN(ms) ? null : new Date(ms);
 }
