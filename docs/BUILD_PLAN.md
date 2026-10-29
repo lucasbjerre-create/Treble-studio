@@ -209,5 +209,18 @@ One session, mostly Lucas.
 
 ---
 
+## Shipped outside the milestone sequence
+
+### Slideshow mode
+Not a numbered milestone - built from a standalone feature prompt once milestone 5 (viewers and followers) was already in place, since it only needed the per-person audience filter that milestone already provides, not anything from 6 onward.
+
+A "Slideshow/Diasshow" link on `/[lang]/[person]/explore` opens `/[lang]/[person]/slideshow`: every photo that person has published, that the current viewer is authorized to see, as a full-screen, no-autoplay, editorial viewer with play/pause, previous/next, speed, photos-per-composition (1-4 or auto), optional deterministic shuffle, and fullscreen.
+
+- Privacy boundary: `listMediaForPersonViewer` (`src/db/queries.ts`) reuses `entryVisibilityWhere`, the exact filter every public/family query already uses - no parallel rule. Scoped to `kind = 'photo'` only. The paginated `GET /api/slideshow/:personSlug` endpoint (`src/worker/api/slideshow.ts`) resolves the viewer from the session cookie the same way `middleware.ts` does for pages, and never returns a count of photos the viewer can't see - only `hasMore`.
+- No-autoplay: playback starts only after Play is pressed, pauses on tab-hide and on any control interaction, and never auto-resumes.
+- Pure sequencing/layout logic lives in `src/lib/slideshow.ts` (composition grouping, next/previous with wrap, speed-to-duration, reduced-motion override, stored-preference validation), unit tested independent of the DB and the UI.
+
+---
+
 ## Later
 Version 2 and 3 items from spec section 12. Reactions and Ask Lucas, postcards, recaps, Study index, stats, perceptual duplicates, reverse geocoding cache, on this day, replay, TREBLE pilot, print export, archive mode. Add each as its own milestone here before building it.

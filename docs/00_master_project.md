@@ -242,6 +242,9 @@ Scholar colours come from a `seat` integer (1-16) on `people`, not a freeform `r
 **Small touches worth keeping**
 Transport glyph changes by leg. Chapter stamps like "UNC · Fall 2026". A "Where was Lucas then?" date picker. Margin notes from remarks. An end of year replay in version 3.
 
+**Slideshow mode** (shipped, see docs/BUILD_PLAN.md's "Shipped outside the milestone sequence")
+A "Slideshow/Diasshow" link on a scholar's explore page opens a dedicated, shareable, full-screen view of every photo from that person the current viewer is authorized to see - same per-person audience rule as every other page (section 9), never a separate allowlist. Editorial collage compositions (1 to 4 photos, or auto by aspect ratio and viewport), soft crossfades, play/pause/previous/next, a speed choice and an optional deterministic shuffle. Never autoplays until the viewer presses Play, pauses when the tab is hidden or a control is used, and never fabricates a slide to fill a composition. Photos only - clips, audio and PDFs are out of scope. Respects `prefers-reduced-motion` (instant change instead of a crossfade) and never reveals how many authorized photos exist beyond what has already loaded.
+
 ---
 
 ## 7. Viewers and family
