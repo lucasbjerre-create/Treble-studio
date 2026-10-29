@@ -143,7 +143,98 @@
 	border-color: var(--color-link);
 }
 
-.slider-controls input[type='range'] {
+.slider-track {
+	position: relative;
 	flex: 1;
+}
+
+.slider-track input[type='range'] {
+	display: block;
+	width: 100%;
 	min-height: var(--touch-min);
+}
+
+.slider-ticks {
+	position: absolute;
+	left: 0;
+	right: 0;
+	/* Centered on the track itself - roughly where a native range track sits
+	   vertically inside its own box. */
+	top: calc(var(--touch-min) / 2);
+	height: 0;
+	pointer-events: none;
+}
+
+.slider-tick {
+	position: absolute;
+	top: -3px;
+	width: 2px;
+	height: 6px;
+	margin-left: -1px;
+	background: var(--color-border-strong);
+	border-radius: var(--radius-xs);
+}
+
+.slider-tick--active {
+	background: var(--color-primary);
+	height: 9px;
+	top: -4.5px;
+}
+
+.slider-date-stamp {
+	position: absolute;
+	/* Negative, not a reserved top padding on .slider-track: this is purely
+	   decorative overlay (aria-hidden, the real value lives in the range
+	   input's own aria-valuetext) and must never add real layout height -
+	   caught by tests/e2e/explore-scroll.spec.ts, whose viewport is tuned to
+	   the exact pixel, breaking the moment this page grew even ~20px taller. */
+	top: -1.25rem;
+	transform: translateX(-50%);
+	padding: 0 var(--space-2);
+	min-height: 1.25rem;
+	display: flex;
+	align-items: center;
+	font-size: var(--text-micro);
+	color: var(--color-text-muted);
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* The active entry's photo + title, following the marker as the slider
+   moves (TimelineExplorer.tsx's entryPopupRef). MapLibre renders this as a
+   plain DOM element stacked above the canvas - brand surface + a rare
+   shadow, the same "floating over content" case tokens.css's own comment
+   allows one for (the studio review panel). */
+.maplibregl-popup.entry-popup .maplibregl-popup-content {
+	padding: 0;
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	box-shadow: var(--shadow-md);
+	overflow: hidden;
+}
+
+.maplibregl-popup.entry-popup .maplibregl-popup-tip {
+	border-top-color: var(--color-surface);
+}
+
+.entry-popup-card {
+	display: flex;
+	flex-direction: column;
+	text-decoration: none;
+	color: var(--color-text);
+	font-family: var(--font-sans);
+}
+
+.entry-popup-card img {
+	display: block;
+	width: 100%;
+	height: 6rem;
+	object-fit: cover;
+}
+
+.entry-popup-title {
+	padding: var(--space-2) var(--space-3);
+	font-size: var(--text-small);
+	font-weight: var(--weight-medium);
+	line-height: 1.3;
 }

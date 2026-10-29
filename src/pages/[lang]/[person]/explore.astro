@@ -42,7 +42,11 @@ const translations = await listEntryTranslations(
 	lang
 );
 
-const cards = await Promise.all(
+// One pass per entry, reused for both the journal-card list below and the
+// map's marker card (TimelineExplorer's popup on the active entry) - a
+// second listMediaForEntry round just to get the same thumbnail again would
+// be wasted work.
+const entryExtras = await Promise.all(
 	entries.map(async (entry) => {
 		const resolved = resolveEntryText(
 			{ originalLang: entry.originalLang, title: entry.title, dek: entry.dek, bodyMd: entry.bodyMd },
@@ -51,9 +55,6 @@ const cards = await Promise.all(
 		);
 		const media = await listMediaForEntry(db, viewer, entry.id, now);
 		return {
-			id: entry.id,
-			slug: entry.slug,
-			occurredAt: entry.occurredAt,
 			title: resolved.title,
 			dek: resolved.dek,
 			thumb: media[0]?.keyThumb ? publicMediaUrl(media[0].keyThumb) : null,
@@ -62,16 +63,26 @@ const cards = await Promise.all(
 	})
 );
 
+const cards = entries.map((entry, i) => ({
+	id: entry.id,
+	slug: entry.slug,
+	occurredAt: entry.occurredAt,
+	...entryExtras[i]
+}));
+
 // timeline.ts is multi-person-ready, but this page still shows one person at
 // a time - only this person's entries/legs are passed in. personId is
 // threaded through because TimelineEntry/TimelineLeg now require it.
-const explorerEntries = entries.map((e) => ({
+const explorerEntries = entries.map((e, i) => ({
 	id: e.id,
 	personId: e.personId,
 	slug: e.slug,
 	occurredAt: e.occurredAt,
 	chapterId: e.chapterId,
-	placeId: e.placeId
+	placeId: e.placeId,
+	title: entryExtras[i].title,
+	thumb: entryExtras[i].thumb,
+	thumbAlt: entryExtras[i].thumbAlt
 }));
 
 const explorerLegs = legs.map((l) => ({
@@ -107,6 +118,8 @@ const explorerPeople = { [person.id]: { displayName: person.displayName, seat: p
 
 		<TimelineExplorer
 			client:only="react"
+			lang={lang}
+			personSlug={personSlug}
 			entries={explorerEntries}
 			legs={explorerLegs}
 			places={explorerPlaces}

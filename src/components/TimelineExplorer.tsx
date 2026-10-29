@@ -1,5 +1,5 @@
 import { greatCircle } from '@turf/great-circle';
-import { Map as MapLibreMap, Marker, setWorkerUrl, type GeoJSONSource } from 'maplibre-gl';
+import { Map as MapLibreMap, Marker, Popup, setWorkerUrl, type GeoJSONSource } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 // The `?worker&url` suffix matters: plain `?url` omits a sibling chunk the
 // worker needs, which works in dev but 404s in a production build.
@@ -21,6 +21,9 @@ let workerUrlSet = false;
 
 export interface ExplorerEntry extends TimelineEntry {
 	slug: string;
+	title: string;
+	/** Already-resolved, audience-checked thumbnail URL, or null for a text-only entry - see explore.astro. */
+	thumb: string | null;
 }
 
 export interface ExplorerLeg extends TimelineLeg {
@@ -41,6 +44,8 @@ export interface ExplorerPerson {
 }
 
 interface Props {
+	lang: 'da' | 'en';
+	personSlug: string;
 	entries: ExplorerEntry[];
 	legs: ExplorerLeg[];
 	places: ExplorerPlace[];
@@ -163,11 +168,12 @@ function applyMapTheme(map: MapLibreMap) {
 	}
 }
 
-export default function TimelineExplorer({ entries, legs, places, people, labels }: Props) {
+export default function TimelineExplorer({ lang, personSlug, entries, legs, places, people, labels }: Props) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<MapLibreMap | null>(null);
 	const seatStyleCache = useRef(new Map<number, SeatStyle>());
 	const campusMarkersRef = useRef<Marker[]>([]);
+	const entryPopupRef = useRef<Popup | null>(null);
 	const [sheetOpen, setSheetOpen] = useState(false);
 
 	// Stable tie-break (same comparator shape as src/lib/timeline.ts's
@@ -387,6 +393,19 @@ export default function TimelineExplorer({ entries, legs, places, people, labels
 				campusMarkersRef.current.push(marker);
 			}
 
+			// Shows the active entry's photo and title, following the marker as
+			// the slider moves - not a per-photo marker (spec: "one marker per
+			// entry, never per photo"), just a small preview of the day you're
+			// looking at right now. No close button: it isn't a dismissable
+			// dialog, it's a label that always reflects the current date.
+			entryPopupRef.current = new Popup({
+				closeButton: false,
+				closeOnClick: false,
+				offset: 18,
+				className: 'entry-popup',
+				maxWidth: '220px'
+			});
+
 			syncMapToState();
 		});
 
@@ -409,6 +428,8 @@ export default function TimelineExplorer({ entries, legs, places, people, labels
 			darkMediaQuery.removeEventListener('change', onThemeChange);
 			for (const marker of campusMarkersRef.current) marker.remove();
 			campusMarkersRef.current = [];
+			entryPopupRef.current?.remove();
+			entryPopupRef.current = null;
 			map.remove();
 			mapRef.current = null;
 			delete (window as unknown as { __explorerMap?: MapLibreMap }).__explorerMap;
@@ -489,42 +510,63 @@ export default function TimelineExplorer({ entries, legs, places, people, labels
 			features: legFeatures
 		});
 
-		// Frames the whole revealed-so-far route (not just the active point) so
-		// every visible marker stays clickable, not just the latest one.
-		const visibleCoords = state.visibleMarkers
-			.map((m) => placeCoords(places, m.placeId))
-			.filter((c): c is [number, number] => c !== undefined);
+		// Single-person for now (explore.astro passes one person's entries) -
+		// activeEntries[0] is that person's active entry. The library itself is
+		// ready for several; this component isn't rendering group UI yet.
+		const activeEntry = entries.find((e) => e.id === state.activeEntries[0]?.id);
+		const activeCoords = placeCoords(places, activeEntry?.placeId ?? null);
 
-		if (visibleCoords.length > 0) {
+		if (activeCoords) {
 			const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-			// Single-person for now (explore.astro passes one person's entries) -
-			// activeEntries[0] is that person's active entry. The library itself
-			// is ready for several; this component isn't rendering group UI yet.
-			const activeCoords = placeCoords(places, state.activeEntries[0]?.placeId ?? null);
 			// A hop that opens a new chapter (its destination's chapter differs
 			// from its own - i.e. this leg is literally what starts the chapter)
 			// gets the longer cinematic treatment; spec names these as the
 			// Denmark->Chapel Hill and US->Singapore hops specifically, and both
 			// happen to be exactly this: the flight that opens a chapter.
 			const activeLeg = legs.find(
-				(l) => l.mode === 'flight' && activeCoords && placeCoords(places, l.toPlaceId)?.join() === activeCoords.join()
+				(l) => l.mode === 'flight' && placeCoords(places, l.toPlaceId)?.join() === activeCoords.join()
 			);
 			const duration = reducedMotion ? 0 : activeLeg ? CAMERA_CINEMATIC_MS : CAMERA_MOVE_MS;
 
-			if (visibleCoords.length === 1) {
-				map.flyTo({ center: visibleCoords[0], zoom: MAP_DEFAULT_ZOOM + 5, duration });
-			} else {
-				const lons = visibleCoords.map((c) => c[0]);
-				const lats = visibleCoords.map((c) => c[1]);
-				map.fitBounds(
-					[
-						[Math.min(...lons), Math.min(...lats)],
-						[Math.max(...lons), Math.max(...lats)]
-					],
-					{ padding: 60, duration, maxZoom: MAP_DEFAULT_ZOOM + 6 }
-				);
-			}
+			// Zooms in on wherever the slider is pointing, rather than fitting the
+			// whole revealed-so-far route - the reader is looking at one day at a
+			// time (the point of the slider having its own date stamp), not an
+			// ever-widening overview. MapLibre's flyTo already arcs out and back
+			// in on its own for a long hop (e.g. Denmark to Chapel Hill), which is
+			// what gives it the "zooms out, pans, zooms back in" feel on a big
+			// jump and a simple, closer pan on a short one. The muted past route
+			// and its markers are still drawn (state.visibleMarkers above) and
+			// still clickable once a reader zooms out by hand.
+			map.flyTo({ center: activeCoords, zoom: MAP_DEFAULT_ZOOM + 5, duration });
 		}
+
+		const popup = entryPopupRef.current;
+		if (popup && activeCoords && activeEntry) {
+			popup.setLngLat(activeCoords).setDOMContent(buildEntryPopupContent(activeEntry)).addTo(map);
+		} else {
+			popup?.remove();
+		}
+	}
+
+	/** The active entry's photo + title, following the marker - see entryPopupRef's setup above. */
+	function buildEntryPopupContent(entry: ExplorerEntry): HTMLElement {
+		const root = document.createElement('a');
+		root.className = 'entry-popup-card';
+		root.href = `/${lang}/${personSlug}/${entry.slug}`;
+
+		if (entry.thumb) {
+			const img = document.createElement('img');
+			img.src = entry.thumb;
+			img.alt = '';
+			root.appendChild(img);
+		}
+
+		const title = document.createElement('span');
+		title.className = 'entry-popup-title';
+		title.textContent = entry.title;
+		root.appendChild(title);
+
+		return root;
 	}
 
 	useEffect(() => {
@@ -603,6 +645,14 @@ export default function TimelineExplorer({ entries, legs, places, people, labels
 	const activeIndex = sortedEntries.findIndex((e) => e.id === state.activeEntries[0]?.id);
 	const activePlace = places.find((p) => p.id === state.activeEntries[0]?.placeId);
 
+	// "Week 9 · 12 Oct" territory (spec section 6's slider labels), not a full
+	// year/weekday - this is a quick stamp next to the thumb, read alongside
+	// the place name already shown in the mobile sheet toggle and the journal
+	// card beside it.
+	const tickDateFormatter = new Intl.DateTimeFormat(lang === 'da' ? 'da-DK' : 'en-US', { day: 'numeric', month: 'short' });
+	const sliderMax = Math.max(sortedEntries.length - 1, 0);
+	const tickPercent = (index: number) => (sliderMax === 0 ? 0 : (index / sliderMax) * 100);
+
 	return (
 		<div className="timeline-explorer">
 			<div className={`map-panel${sheetOpen ? ' map-panel--open' : ''}`}>
@@ -626,15 +676,32 @@ export default function TimelineExplorer({ entries, legs, places, people, labels
 				>
 					&larr; {labels.previous}
 				</button>
-				<input
-					type="range"
-					min={0}
-					max={Math.max(sortedEntries.length - 1, 0)}
-					value={Math.max(activeIndex, 0)}
-					onChange={(e) => navigateTo(sortedEntries[Number(e.target.value)]?.occurredAt)}
-					onKeyDown={handleKeyDown}
-					aria-label="Timeline position"
-				/>
+				<div className="slider-track">
+					<input
+						type="range"
+						min={0}
+						max={sliderMax}
+						value={Math.max(activeIndex, 0)}
+						onChange={(e) => navigateTo(sortedEntries[Number(e.target.value)]?.occurredAt)}
+						onKeyDown={handleKeyDown}
+						aria-label="Timeline position"
+						aria-valuetext={activeIndex >= 0 ? tickDateFormatter.format(new Date(sortedEntries[activeIndex].occurredAt)) : undefined}
+					/>
+					<div className="slider-ticks" aria-hidden="true">
+						{sortedEntries.map((entry, i) => (
+							<span
+								key={entry.id}
+								className={i === activeIndex ? 'slider-tick slider-tick--active' : 'slider-tick'}
+								style={{ left: `${tickPercent(i)}%` }}
+							/>
+						))}
+					</div>
+					{activeIndex >= 0 && (
+						<div className="slider-date-stamp t-data" aria-hidden="true" style={{ left: `${tickPercent(activeIndex)}%` }}>
+							{tickDateFormatter.format(new Date(sortedEntries[activeIndex].occurredAt))}
+						</div>
+					)}
+				</div>
 				<button
 					type="button"
 					onClick={() => navigateTo(adjacentEntryDate(entries, date, 'next'))}
