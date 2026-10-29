@@ -561,3 +561,84 @@ export async function listPeopleWithVisibleEntries(db: Database, viewer: Viewer,
 export async function listFollowersForPerson(db: Database, personId: number) {
 	return db.select().from(schema.follows).where(eq(schema.follows.personId, personId)).orderBy(desc(schema.follows.createdAt));
 }
+
+// Photo-only, display-safe columns for the slideshow (src/lib/slideshow.ts).
+// Scoped to kind 'photo' at the query itself - clips/audio/pdf are out of
+// scope for this feature, never fetched then hidden. Deliberately narrower
+// than publicMediaColumns: no kind/posterKey/durationMs/sortOrder, since
+// those only matter for video or for ordering within one entry, which this
+// cross-entry, cross-person-safe query handles itself.
+const publicSlideshowMediaColumns = {
+	id: schema.media.id,
+	entryId: schema.media.entryId,
+	keyDisplay: schema.media.keyDisplay,
+	keyLarge: schema.media.keyLarge,
+	width: schema.media.width,
+	height: schema.media.height,
+	caption: schema.media.caption,
+	altText: schema.media.altText
+} as const;
+
+export interface SlideshowMediaRow {
+	id: number;
+	entryId: number;
+	keyDisplay: string | null;
+	keyLarge: string | null;
+	width: number | null;
+	height: number | null;
+	caption: string | null;
+	altText: string | null;
+	occurredAt: string;
+}
+
+export interface SlideshowMediaPage {
+	items: SlideshowMediaRow[];
+	hasMore: boolean;
+}
+
+/**
+ * Every published photo from one person this viewer is authorized to see,
+ * oldest first (the slideshow tells the journey in the order it was lived -
+ * see docs/00_master_project.md's slideshow note). Reuses
+ * entryVisibilityWhere, the exact audience filter every other public/family
+ * query in this file uses - no parallel rule.
+ *
+ * Offset paginated rather than keyset: fine at this project's realistic
+ * photo counts (studio.md's own storage estimate is a few thousand photos a
+ * year across everyone) - keyset pagination would only earn its complexity
+ * at a scale this site isn't going to reach. Never returns a total count, so
+ * a caller can't learn how many photos are hidden beyond what it already
+ * received - only hasMore, which is true/false regardless of why the next
+ * page might come back empty (exhausted vs. nothing-authorized).
+ */
+export async function listMediaForPersonViewer(
+	db: Database,
+	viewer: Viewer,
+	personId: number,
+	now: string,
+	opts: { offset?: number; limit?: number } = {}
+): Promise<SlideshowMediaPage> {
+	const offset = Math.max(0, opts.offset ?? 0);
+	const limit = Math.max(1, Math.min(opts.limit ?? 24, 60));
+
+	const where = combine(
+		eq(schema.entries.personId, personId),
+		eq(schema.media.kind, 'photo'),
+		entryVisibilityWhere(viewer, now)
+	);
+
+	let query = db
+		.select({ ...publicSlideshowMediaColumns, occurredAt: schema.entries.occurredAt })
+		.from(schema.media)
+		.innerJoin(schema.entries, eq(schema.media.entryId, schema.entries.id))
+		.$dynamic();
+	if (where) query = query.where(where);
+
+	// limit+1 to detect "more exist" without a separate count query.
+	const rows = await query
+		.orderBy(asc(schema.entries.occurredAt), asc(schema.entries.id), asc(schema.media.sortOrder), asc(schema.media.id))
+		.limit(limit + 1)
+		.offset(offset);
+
+	return { items: rows.slice(0, limit), hasMore: rows.length > limit };
+}

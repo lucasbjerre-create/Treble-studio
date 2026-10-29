@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { mediaApi } from './api/media';
+import { slideshowApi } from './api/slideshow';
 import { studioApi } from './api/studio';
 import { viewerApi } from './api/viewer';
 
@@ -9,3 +10,4 @@ app.get('/health', (c) => c.json({ ok: true }));
 app.route('/studio', studioApi);
 app.route('/viewer', viewerApi);
 app.route('/media', mediaApi);
+app.route('/slideshow', slideshowApi);
