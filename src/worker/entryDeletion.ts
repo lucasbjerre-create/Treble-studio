@@ -4,7 +4,7 @@
 // /media/:id handler is the model: R2 objects first, then child rows, then
 // the entry itself).
 import { env } from 'cloudflare:workers';
-import { and, eq, inArray, lt } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt } from 'drizzle-orm';
 import { DRAFT_EXPIRY_DAYS } from '../config/site';
 import type { getDb } from '../db/client';
 import * as schema from '../db/schema';
@@ -33,10 +33,17 @@ export async function deleteEntryCascade(db: Database, entryId: number): Promise
 /**
  * Deletes this person's own drafts older than DRAFT_EXPIRY_DAYS - the one
  * named exception to studio.md's "automation never deletes" (see that file's
- * history for the amendment). Never touches a published entry. Runs lazily,
- * the next time the studio entries list loads after the window passes -
- * deliberately no background cron, since nothing needs deleting when nobody
- * is looking at the site either.
+ * history for the amendment). Never touches a published entry, and - just as
+ * importantly - never touches an entry that WAS published and has since been
+ * taken back to draft via /unpublish: publishedAt is left as-is by that
+ * route specifically so this isNull check excludes it. Without that, an old
+ * entry's original createdAt (correctly never touched by unpublish) would
+ * already be past the expiry window the moment it's unpublished, and the
+ * very next studio page load would auto-delete it for real - caught live
+ * while building /unpublish, see its own comment. Runs lazily, the next
+ * time the studio entries list loads after the window passes - deliberately
+ * no background cron, since nothing needs deleting when nobody is looking at
+ * the site either.
  */
 export async function sweepStaleDrafts(db: Database, personId: number, now: string): Promise<number> {
 	const cutoff = new Date(new Date(now).getTime() - DRAFT_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
@@ -44,7 +51,12 @@ export async function sweepStaleDrafts(db: Database, personId: number, now: stri
 		.select({ id: schema.entries.id })
 		.from(schema.entries)
 		.where(
-			and(eq(schema.entries.personId, personId), eq(schema.entries.status, 'draft'), lt(schema.entries.createdAt, cutoff))
+			and(
+				eq(schema.entries.personId, personId),
+				eq(schema.entries.status, 'draft'),
+				isNull(schema.entries.publishedAt),
+				lt(schema.entries.createdAt, cutoff)
+			)
 		);
 	for (const row of stale) {
 		await deleteEntryCascade(db, row.id);

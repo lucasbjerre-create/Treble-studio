@@ -88,7 +88,14 @@ export async function listEntrySummariesForPerson(db: Database, personId: number
 			title: schema.entries.title,
 			status: schema.entries.status,
 			occurredAt: schema.entries.occurredAt,
-			createdAt: schema.entries.createdAt
+			createdAt: schema.entries.createdAt,
+			// So EntryList can tell a genuinely new, never-published draft (the
+			// only kind sweepStaleDrafts - entryDeletion.ts - ever auto-deletes)
+			// apart from one that's been unpublished back to draft, which is
+			// exempt regardless of age. Without this the expiry countdown
+			// wrongly threatens an unpublished entry that will never actually
+			// auto-delete.
+			publishedAt: schema.entries.publishedAt
 		})
 		.from(schema.entries)
 		.where(eq(schema.entries.personId, personId))

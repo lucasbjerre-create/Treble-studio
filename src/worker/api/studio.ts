@@ -175,10 +175,10 @@ studioApi.delete('/entries/:id', async (c) => {
 	return c.json({ ok: true });
 });
 
-const bulkDeleteSchema = z.object({ ids: z.array(z.number().int().positive()).min(1).max(200) });
+const bulkIdsSchema = z.object({ ids: z.array(z.number().int().positive()).min(1).max(200) });
 
 studioApi.post('/entries/bulk-delete', async (c) => {
-	const parsed = bulkDeleteSchema.safeParse(await c.req.json());
+	const parsed = bulkIdsSchema.safeParse(await c.req.json());
 	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
 
 	const db = getDb();
@@ -216,6 +216,55 @@ studioApi.post('/entries/:id/publish', async (c) => {
 		.where(eq(schema.entries.id, id));
 
 	return c.json({ ok: true });
+});
+
+// Takes a published entry back to draft - hides it from every public/family
+// viewer (entryVisibilityWhere requires status 'published' first, before it
+// even looks at audience) without deleting it or anything it carries
+// (media, people tags, translations). The opposite of /publish, not a
+// softer version of delete - automation never does this on its own
+// (studio.md: "automation... never publishes"; the same line covers taking
+// something off public view).
+//
+// Deliberately leaves published_at as it was rather than clearing it back to
+// null - sweepStaleDrafts (entryDeletion.ts) only sweeps a draft whose
+// published_at is still null, i.e. one that's never gone live. Clearing it
+// here would make an old, previously-published entry's original created_at
+// (untouched, correctly - it's still when the row was first made) fall
+// outside the expiry window the moment it's unpublished, so the very next
+// studio page load would auto-delete real, already-published content for
+// real. Caught live: this is exactly what happened to a seed fixture entry
+// while building this route.
+studioApi.post('/entries/:id/unpublish', async (c) => {
+	const id = Number(c.req.param('id'));
+	if (!Number.isInteger(id)) return c.json({ error: 'Invalid id' }, 400);
+
+	const db = getDb();
+	const personId = c.get('personId');
+	const existing = await requireOwnEntry(db, id, personId);
+	if (!existing) return c.json({ error: 'Not found' }, 404);
+
+	await db.update(schema.entries).set({ status: 'draft', updatedAt: new Date().toISOString() }).where(eq(schema.entries.id, id));
+
+	return c.json({ ok: true });
+});
+
+studioApi.post('/entries/bulk-unpublish', async (c) => {
+	const parsed = bulkIdsSchema.safeParse(await c.req.json());
+	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
+
+	const db = getDb();
+	const personId = c.get('personId');
+	const now = new Date().toISOString();
+	const unpublished: number[] = [];
+	for (const id of parsed.data.ids) {
+		const existing = await requireOwnEntry(db, id, personId);
+		if (!existing) continue;
+		await db.update(schema.entries).set({ status: 'draft', updatedAt: now }).where(eq(schema.entries.id, id));
+		unpublished.push(id);
+	}
+
+	return c.json({ unpublished });
 });
 
 // ---- places ----
