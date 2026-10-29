@@ -314,13 +314,11 @@ export default function Slideshow({ personSlug, profileHref, initialPhotos, init
 					current.photos.map((photo) => {
 						const broken = brokenIds.has(photo.id);
 						const url = imageUrl(photo, true);
-						const aspectRatio = photo.width && photo.height ? `${photo.width} / ${photo.height}` : '4 / 3';
 						return (
-							<figure
-								key={photo.id}
-								className={`slideshow-slot slideshow-slot--${current.layout}`}
-								style={{ aspectRatio }}
-							>
+							<figure key={photo.id} className={`slideshow-slot slideshow-slot--${current.layout}`}>
+								{/* No fixed aspect-ratio on the slot itself: it fills its grid
+								    cell and object-fit: contain (Slideshow.css) preserves the
+								    photo's real aspect ratio without cropping or stretching. */}
 								{broken || !url ? (
 									<div className="slideshow-slot-error" aria-hidden="true" />
 								) : (
