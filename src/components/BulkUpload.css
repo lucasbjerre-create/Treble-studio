@@ -6,6 +6,36 @@
 	font-size: var(--text-small);
 }
 
+.bulk-dropzone {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+	padding: var(--space-4);
+	border: 1px dashed var(--color-border);
+	border-radius: var(--radius-xs);
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.bulk-dropzone.active {
+	border-color: var(--color-primary);
+	background: var(--color-surface);
+}
+
+.bulk-dropzone.disabled {
+	opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bulk-dropzone {
+		transition: none;
+	}
+}
+
+.bulk-dropzone-hint {
+	color: var(--color-text-muted);
+}
+
 .bulk-file-picker {
 	display: inline-flex;
 	align-items: center;

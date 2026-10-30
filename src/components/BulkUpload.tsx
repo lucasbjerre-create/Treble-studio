@@ -95,12 +95,24 @@ function BackgroundProgressRing({ done, total }: { done: number; total: number }
  * BUILD_PLAN.md's Milestone 9 ("Smart ingest") - no day/moment grouping, no
  * route legs, no story assembly, one photo always means one entry.
  */
+/** Same filter as the file picker's `accept` - drag and drop hands over whatever the OS gives it, unfiltered. */
+function isAcceptedPhoto(file: File): boolean {
+	if (file.type.startsWith('image/')) return true;
+	const name = file.name.toLowerCase();
+	return name.endsWith('.heic') || name.endsWith('.heif');
+}
+
 export default function BulkUpload() {
 	const [rows, setRows] = useState<FileRow[]>([]);
 	const [places, setPlaces] = useState<PlaceLike[]>([]);
 	const [placesLoaded, setPlacesLoaded] = useState(false);
 	const [processing, setProcessing] = useState(false);
 	const [primary, setPrimary] = useState<PrimaryDraft | null>(null);
+	const [dragActive, setDragActive] = useState(false);
+	// Counts nested enter/leave pairs instead of a bare boolean - dragging over
+	// a child element (the label inside the dropzone) fires leave-then-enter on
+	// the parent, which a boolean would misread as the drag having left.
+	const dragDepth = useRef(0);
 
 	const progressByKey = useRef(new Map<string, FileProgress>());
 	const objectUrls = useRef<string[]>([]);
@@ -312,24 +324,53 @@ export default function BulkUpload() {
 
 	return (
 		<div className="bulk-upload">
-			<label className={processing ? 'bulk-file-picker disabled' : 'bulk-file-picker'}>
-				Select photos
-				<input
-					type="file"
-					// .heic/.heif alongside the image/* wildcard - see PhotoUpload.tsx.
-					accept="image/*,.heic,.heif"
-					multiple
-					disabled={processing}
-					onChange={(e) => {
-						// Extract the concrete Files before resetting value - e.target.files
-						// is a live FileList, and clearing value (so the same file can be
-						// picked again later) empties that same list out from under us.
-						const files = Array.from(e.target.files ?? []);
-						e.target.value = '';
-						if (files.length > 0) void handleFiles(files);
-					}}
-				/>
-			</label>
+			<div
+				className={`bulk-dropzone${dragActive ? ' active' : ''}${processing ? ' disabled' : ''}`}
+				onDragEnter={(e) => {
+					e.preventDefault();
+					if (processing) return;
+					dragDepth.current += 1;
+					setDragActive(true);
+				}}
+				onDragOver={(e) => {
+					// Required for onDrop to fire at all - browsers reject drops by default.
+					e.preventDefault();
+				}}
+				onDragLeave={(e) => {
+					e.preventDefault();
+					if (processing) return;
+					dragDepth.current = Math.max(0, dragDepth.current - 1);
+					if (dragDepth.current === 0) setDragActive(false);
+				}}
+				onDrop={(e) => {
+					e.preventDefault();
+					dragDepth.current = 0;
+					setDragActive(false);
+					if (processing) return;
+					const files = Array.from(e.dataTransfer.files ?? []).filter(isAcceptedPhoto);
+					if (files.length > 0) void handleFiles(files);
+				}}
+			>
+				<label className={processing ? 'bulk-file-picker disabled' : 'bulk-file-picker'}>
+					Select photos
+					<input
+						type="file"
+						// .heic/.heif alongside the image/* wildcard - see PhotoUpload.tsx.
+						accept="image/*,.heic,.heif"
+						multiple
+						disabled={processing}
+						onChange={(e) => {
+							// Extract the concrete Files before resetting value - e.target.files
+							// is a live FileList, and clearing value (so the same file can be
+							// picked again later) empties that same list out from under us.
+							const files = Array.from(e.target.files ?? []);
+							e.target.value = '';
+							if (files.length > 0) void handleFiles(files);
+						}}
+					/>
+				</label>
+				<span className="bulk-dropzone-hint">or drag photos here</span>
+			</div>
 
 			{rows.length === 0 && !primary && (
 				<p className="hint">
