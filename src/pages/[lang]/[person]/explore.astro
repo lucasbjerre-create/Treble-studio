@@ -58,7 +58,9 @@ const entryExtras = await Promise.all(
 			title: resolved.title,
 			dek: resolved.dek,
 			thumb: media[0]?.keyThumb ? publicMediaUrl(media[0].keyThumb) : null,
-			thumbAlt: media[0]?.altText ?? ''
+			thumbAlt: media[0]?.altText ?? '',
+			thumbWidth: media[0]?.width ?? null,
+			thumbHeight: media[0]?.height ?? null
 		};
 	})
 );
@@ -82,7 +84,9 @@ const explorerEntries = entries.map((e, i) => ({
 	placeId: e.placeId,
 	title: entryExtras[i].title,
 	thumb: entryExtras[i].thumb,
-	thumbAlt: entryExtras[i].thumbAlt
+	thumbAlt: entryExtras[i].thumbAlt,
+	thumbWidth: entryExtras[i].thumbWidth,
+	thumbHeight: entryExtras[i].thumbHeight
 }));
 
 const explorerLegs = legs.map((l) => ({

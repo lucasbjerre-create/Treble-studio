@@ -24,6 +24,9 @@ export interface ExplorerEntry extends TimelineEntry {
 	title: string;
 	/** Already-resolved, audience-checked thumbnail URL, or null for a text-only entry - see explore.astro. */
 	thumb: string | null;
+	/** The thumb's real pixel size, so the map popup can reserve its original aspect ratio instead of cropping to a fixed one. Null when thumb is null or the media row predates width/height capture. */
+	thumbWidth: number | null;
+	thumbHeight: number | null;
 }
 
 export interface ExplorerLeg extends TimelineLeg {
@@ -559,6 +562,9 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 			const img = document.createElement('img');
 			img.src = entry.thumb;
 			img.alt = '';
+			if (entry.thumbWidth && entry.thumbHeight) {
+				img.style.aspectRatio = `${entry.thumbWidth} / ${entry.thumbHeight}`;
+			}
 			root.appendChild(img);
 		}
 
