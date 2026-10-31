@@ -56,6 +56,24 @@ test('changing speed and collage size takes effect and pauses playback', async (
 	await expect(page.getByText('1 of 1')).toBeVisible();
 });
 
+test('changing the transition style updates the stage and persists across a reload', async ({ page }) => {
+	await page.goto('/en/lucas/slideshow');
+	await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+
+	// Defaults to fade.
+	await expect(page.locator('.slideshow-stage')).toHaveAttribute('data-transition', 'fade');
+
+	await page.getByRole('button', { name: 'Play' }).click();
+	await page.getByLabel('Transition').selectOption('slide');
+	await expect(page.locator('.slideshow-stage')).toHaveAttribute('data-transition', 'slide');
+	await expect(page.getByRole('button', { name: 'Play' })).toBeVisible(); // paused by the change, like speed/collage
+
+	await page.reload();
+	await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+	await expect(page.locator('.slideshow-stage')).toHaveAttribute('data-transition', 'slide');
+	await expect(page.getByLabel('Transition')).toHaveValue('slide');
+});
+
 test('keyboard: arrow keys navigate, space toggles play, Escape closes', async ({ page }) => {
 	await page.goto('/en/lucas/slideshow');
 	await expect(page.getByRole('button', { name: 'Play' })).toBeVisible(); // wait for the island to hydrate before sending keys

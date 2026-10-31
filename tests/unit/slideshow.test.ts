@@ -197,10 +197,22 @@ describe('validateSlideshowPreferences', () => {
 	});
 
 	it('keeps valid fields as-is', () => {
-		expect(validateSlideshowPreferences({ speed: 'fast', collageSize: 3 })).toEqual({ speed: 'fast', collageSize: 3 });
+		expect(validateSlideshowPreferences({ speed: 'fast', collageSize: 3, transitionStyle: 'slide' })).toEqual({
+			speed: 'fast',
+			collageSize: 3,
+			transitionStyle: 'slide'
+		});
 	});
 
-	it('validates each field independently, keeping the valid one', () => {
-		expect(validateSlideshowPreferences({ speed: 'fast', collageSize: 'bogus' })).toEqual({ speed: 'fast', collageSize: 'auto' });
+	it('validates each field independently, keeping the valid ones', () => {
+		expect(validateSlideshowPreferences({ speed: 'fast', collageSize: 'bogus', transitionStyle: 'zoom' })).toEqual({
+			speed: 'fast',
+			collageSize: 'auto',
+			transitionStyle: 'zoom'
+		});
+	});
+
+	it('falls back to the default transition style for an invalid value', () => {
+		expect(validateSlideshowPreferences({ transitionStyle: 'spin' })).toEqual(DEFAULT_SLIDESHOW_PREFERENCES);
 	});
 });

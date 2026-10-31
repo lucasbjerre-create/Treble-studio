@@ -2,6 +2,7 @@ export type CollageSize = 1 | 2 | 3 | 4 | 'auto';
 export type ViewportCategory = 'phone' | 'tablet' | 'desktop';
 export type Speed = 'slow' | 'normal' | 'fast';
 export type LayoutName = 'single' | 'duo' | 'trio' | 'quad';
+export type TransitionStyle = 'fade' | 'slide' | 'zoom';
 
 /**
  * Exactly the fields src/db/queries.ts's listMediaForPersonViewer already
@@ -164,12 +165,18 @@ export function transitionDurationMs(reducedMotion: boolean): number {
 export interface SlideshowPreferences {
 	speed: Speed;
 	collageSize: CollageSize;
+	transitionStyle: TransitionStyle;
 }
 
-export const DEFAULT_SLIDESHOW_PREFERENCES: SlideshowPreferences = { speed: 'normal', collageSize: 'auto' };
+export const DEFAULT_SLIDESHOW_PREFERENCES: SlideshowPreferences = {
+	speed: 'normal',
+	collageSize: 'auto',
+	transitionStyle: 'fade'
+};
 
 const VALID_SPEEDS: ReadonlySet<string> = new Set(['slow', 'normal', 'fast']);
 const VALID_COLLAGE_SIZES: ReadonlySet<CollageSize> = new Set([1, 2, 3, 4, 'auto']);
+const VALID_TRANSITION_STYLES: ReadonlySet<string> = new Set(['fade', 'slide', 'zoom']);
 
 /**
  * Defends against corrupted/foreign localStorage JSON (a hand-edited value,
@@ -185,5 +192,8 @@ export function validateSlideshowPreferences(raw: unknown): SlideshowPreferences
 	const collageSize = VALID_COLLAGE_SIZES.has(obj.collageSize as CollageSize)
 		? (obj.collageSize as CollageSize)
 		: DEFAULT_SLIDESHOW_PREFERENCES.collageSize;
-	return { speed, collageSize };
+	const transitionStyle = VALID_TRANSITION_STYLES.has(obj.transitionStyle as string)
+		? (obj.transitionStyle as TransitionStyle)
+		: DEFAULT_SLIDESHOW_PREFERENCES.transitionStyle;
+	return { speed, collageSize, transitionStyle };
 }

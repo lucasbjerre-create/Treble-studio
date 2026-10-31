@@ -85,6 +85,10 @@ export interface Dictionary {
 		collageTwo: string;
 		collageThree: string;
 		collageFour: string;
+		transitionLabel: string;
+		transitionFade: string;
+		transitionSlide: string;
+		transitionZoom: string;
 		shuffle: string;
 		fullscreenEnter: string;
 		fullscreenExit: string;
@@ -181,6 +185,10 @@ export const en: Dictionary = {
 		collageTwo: '2',
 		collageThree: '3',
 		collageFour: '4',
+		transitionLabel: 'Transition',
+		transitionFade: 'Fade',
+		transitionSlide: 'Slide',
+		transitionZoom: 'Zoom',
 		shuffle: 'Shuffle',
 		fullscreenEnter: 'Fullscreen',
 		fullscreenExit: 'Exit fullscreen',

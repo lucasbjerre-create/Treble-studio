@@ -13,7 +13,8 @@ import {
 	viewportCategoryFromWidth,
 	type CollageSize,
 	type Speed,
-	type SlideshowPhoto
+	type SlideshowPhoto,
+	type TransitionStyle
 } from '../lib/slideshow';
 import { publicMediaUrl } from '../lib/mediaUrl';
 import './Slideshow.css';
@@ -34,9 +35,9 @@ function loadStoredPreferences() {
 	}
 }
 
-function saveStoredPreferences(speed: Speed, collageSize: CollageSize) {
+function saveStoredPreferences(speed: Speed, collageSize: CollageSize, transitionStyle: TransitionStyle) {
 	try {
-		window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ speed, collageSize }));
+		window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ speed, collageSize, transitionStyle }));
 	} catch {
 		// Not persisting a preference is harmless - never surface this to the viewer.
 	}
@@ -58,6 +59,10 @@ export interface SlideshowStrings {
 	collageTwo: string;
 	collageThree: string;
 	collageFour: string;
+	transitionLabel: string;
+	transitionFade: string;
+	transitionSlide: string;
+	transitionZoom: string;
 	shuffle: string;
 	fullscreenEnter: string;
 	fullscreenExit: string;
@@ -97,6 +102,7 @@ export default function Slideshow({ personSlug, profileHref, initialPhotos, init
 	const stored = useMemo(loadStoredPreferences, []);
 	const [speed, setSpeed] = useState<Speed>(stored.speed);
 	const [requestedCollageSize, setRequestedCollageSize] = useState<CollageSize>(stored.collageSize);
+	const [transitionStyle, setTransitionStyle] = useState<TransitionStyle>(stored.transitionStyle);
 	const [shuffle, setShuffle] = useState(false);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [isFullscreen, setIsFullscreen] = useState(false);
@@ -277,13 +283,19 @@ export default function Slideshow({ personSlug, profileHref, initialPhotos, init
 	function changeSpeed(next: Speed) {
 		pause();
 		setSpeed(next);
-		saveStoredPreferences(next, requestedCollageSize);
+		saveStoredPreferences(next, requestedCollageSize, transitionStyle);
 	}
 
 	function changeCollageSize(next: CollageSize) {
 		pause();
 		setRequestedCollageSize(next);
-		saveStoredPreferences(speed, next);
+		saveStoredPreferences(speed, next, transitionStyle);
+	}
+
+	function changeTransitionStyle(next: TransitionStyle) {
+		pause();
+		setTransitionStyle(next);
+		saveStoredPreferences(speed, requestedCollageSize, next);
 	}
 
 	function toggleShuffle() {
@@ -309,7 +321,39 @@ export default function Slideshow({ personSlug, profileHref, initialPhotos, init
 
 	return (
 		<div className="slideshow" ref={containerRef} data-fullscreen={isFullscreen || undefined}>
-			<div className="slideshow-stage" style={{ '--slideshow-transition': `${transitionMs}ms` } as React.CSSProperties}>
+			<div className="slideshow-topbar">
+				<div className="slideshow-progress" aria-live="polite">
+					{progressText}
+				</div>
+				<div className="slideshow-topbar-actions">
+					{document.fullscreenEnabled && (
+						<button
+							type="button"
+							className="slideshow-icon-button"
+							onClick={toggleFullscreen}
+							aria-pressed={isFullscreen}
+							aria-label={isFullscreen ? strings.fullscreenExit : strings.fullscreenEnter}
+							title={isFullscreen ? strings.fullscreenExit : strings.fullscreenEnter}
+						>
+							{isFullscreen ? '⤡' : '⤢'}
+						</button>
+					)}
+					<a
+						className="slideshow-icon-button slideshow-icon-button--close"
+						href={profileHref}
+						aria-label={strings.close}
+						title={strings.close}
+					>
+						&times;
+					</a>
+				</div>
+			</div>
+
+			<div
+				className="slideshow-stage"
+				data-transition={transitionStyle}
+				style={{ '--slideshow-transition': `${transitionMs}ms` } as React.CSSProperties}
+			>
 				{current &&
 					current.photos.map((photo) => {
 						const broken = brokenIds.has(photo.id);
@@ -335,10 +379,6 @@ export default function Slideshow({ personSlug, profileHref, initialPhotos, init
 					})}
 			</div>
 
-			<div className="slideshow-progress" aria-live="polite">
-				{progressText}
-			</div>
-
 			{loadError && (
 				<div className="slideshow-banner" role="alert">
 					<span>{strings.error}</span>
@@ -348,56 +388,63 @@ export default function Slideshow({ personSlug, profileHref, initialPhotos, init
 				</div>
 			)}
 
-			<div className="slideshow-controls">
-				<button type="button" onClick={goPrevious} aria-label={strings.previous} disabled={totalCompositions <= 1}>
-					&larr;
-				</button>
-				<button
-					type="button"
-					onClick={() => setIsPlaying((p) => !p)}
-					aria-pressed={isPlaying}
-					aria-label={isPlaying ? strings.pause : strings.play}
-					disabled={totalCompositions <= 1}
-				>
-					{isPlaying ? strings.pause : strings.play}
-				</button>
-				<button type="button" onClick={goNext} aria-label={strings.next} disabled={totalCompositions <= 1}>
-					&rarr;
-				</button>
-
-				<label className="slideshow-field">
-					<span>{strings.speedLabel}</span>
-					<select value={speed} onChange={(e) => changeSpeed(e.target.value as Speed)}>
-						<option value="slow">{strings.speedSlow}</option>
-						<option value="normal">{strings.speedNormal}</option>
-						<option value="fast">{strings.speedFast}</option>
-					</select>
-				</label>
-
-				<label className="slideshow-field">
-					<span>{strings.collageLabel}</span>
-					<select value={String(requestedCollageSize)} onChange={(e) => changeCollageSize((isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value)) as CollageSize)}>
-						{collageOptions.map((option) => (
-							<option key={String(option)} value={String(option)}>
-								{collageLabelFor[String(option)]}
-							</option>
-						))}
-					</select>
-				</label>
-
-				<button type="button" onClick={toggleShuffle} aria-pressed={shuffle}>
-					{strings.shuffle}
-				</button>
-
-				{document.fullscreenEnabled && (
-					<button type="button" onClick={toggleFullscreen} aria-pressed={isFullscreen}>
-						{isFullscreen ? strings.fullscreenExit : strings.fullscreenEnter}
+			<div className="slideshow-panel">
+				<div className="slideshow-panel-row slideshow-panel-row--nav">
+					<button type="button" className="slideshow-nav-button" onClick={goPrevious} aria-label={strings.previous} disabled={totalCompositions <= 1}>
+						&larr;
 					</button>
-				)}
+					<button
+						type="button"
+						className="slideshow-play-button"
+						onClick={() => setIsPlaying((p) => !p)}
+						aria-pressed={isPlaying}
+						aria-label={isPlaying ? strings.pause : strings.play}
+						disabled={totalCompositions <= 1}
+					>
+						{isPlaying ? '❚❚' : '►'}
+						<span className="slideshow-play-button-label">{isPlaying ? strings.pause : strings.play}</span>
+					</button>
+					<button type="button" className="slideshow-nav-button" onClick={goNext} aria-label={strings.next} disabled={totalCompositions <= 1}>
+						&rarr;
+					</button>
+				</div>
 
-				<a className="slideshow-close" href={profileHref} aria-label={strings.close}>
-					{strings.close}
-				</a>
+				<div className="slideshow-panel-divider" aria-hidden="true" />
+
+				<div className="slideshow-panel-row slideshow-panel-row--settings">
+					<label className="slideshow-field">
+						<span>{strings.speedLabel}</span>
+						<select value={speed} onChange={(e) => changeSpeed(e.target.value as Speed)}>
+							<option value="slow">{strings.speedSlow}</option>
+							<option value="normal">{strings.speedNormal}</option>
+							<option value="fast">{strings.speedFast}</option>
+						</select>
+					</label>
+
+					<label className="slideshow-field">
+						<span>{strings.collageLabel}</span>
+						<select value={String(requestedCollageSize)} onChange={(e) => changeCollageSize((isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value)) as CollageSize)}>
+							{collageOptions.map((option) => (
+								<option key={String(option)} value={String(option)}>
+									{collageLabelFor[String(option)]}
+								</option>
+							))}
+						</select>
+					</label>
+
+					<label className="slideshow-field">
+						<span>{strings.transitionLabel}</span>
+						<select value={transitionStyle} onChange={(e) => changeTransitionStyle(e.target.value as TransitionStyle)}>
+							<option value="fade">{strings.transitionFade}</option>
+							<option value="slide">{strings.transitionSlide}</option>
+							<option value="zoom">{strings.transitionZoom}</option>
+						</select>
+					</label>
+
+					<button type="button" className="slideshow-toggle-button" onClick={toggleShuffle} aria-pressed={shuffle}>
+						{strings.shuffle}
+					</button>
+				</div>
 			</div>
 		</div>
 	);
