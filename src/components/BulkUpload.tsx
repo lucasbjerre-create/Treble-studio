@@ -5,6 +5,7 @@ import EntryEditor, { type InitialEntry } from './EntryEditor';
 import { findOrCreatePlaceFromGps, type PlaceLike } from '../lib/placeFromGps';
 import {
 	capturedAtIso,
+	decodableThumbnailUrl,
 	readPhotoMetadata,
 	uploadPhotoToEntry,
 	type PhotoMetadata,
@@ -115,6 +116,9 @@ export default function BulkUpload() {
 	const dragDepth = useRef(0);
 
 	const progressByKey = useRef(new Map<string, FileProgress>());
+	// For the thumbnail fallback below - decodableThumbnailUrl needs the
+	// original File back when the direct object URL fails to render.
+	const filesByKey = useRef(new Map<string, File>());
 	const objectUrls = useRef<string[]>([]);
 	// A ref, not state: handleFiles reads this synchronously across await
 	// points within one loop (and across separate picks), where a state
@@ -142,6 +146,33 @@ export default function BulkUpload() {
 
 	function setPhase(key: string, phase: FilePhase) {
 		setRows((prev) => prev.map((r) => (r.key === key ? { ...r, phase } : r)));
+	}
+
+	function setThumbUrl(key: string, thumbUrl: string) {
+		setRows((prev) => prev.map((r) => (r.key === key ? { ...r, thumbUrl } : r)));
+	}
+
+	/**
+	 * The browser couldn't render row.thumbUrl's object URL directly - in
+	 * practice, HEIC on a browser with no native HEIC image support (Safari
+	 * renders it fine as-is and never calls this). Decodes it the same way
+	 * the real upload does and swaps in a displayable thumbnail instead of
+	 * leaving the broken-image icon up.
+	 */
+	function handleThumbError(key: string) {
+		const file = filesByKey.current.get(key);
+		if (!file) return;
+		decodableThumbnailUrl(file)
+			.then((url) => {
+				objectUrls.current.push(url);
+				setThumbUrl(key, url);
+			})
+			.catch(() => {
+				// Best-effort - the broken-image icon stands in for a thumbnail
+				// this browser genuinely can't produce either way; the upload
+				// pipeline itself (uploadPhotoToEntry) still gets its own real
+				// error if the file turns out to be unreadable there too.
+			});
 	}
 
 	async function processFile(file: File, key: string): Promise<ProcessResult> {
@@ -290,14 +321,11 @@ export default function BulkUpload() {
 		await ensurePlacesLoaded();
 
 		const newRows: FileRow[] = files.map((file) => {
+			const key = `${file.name}-${file.lastModified}-${Math.random()}`;
+			filesByKey.current.set(key, file);
 			const thumbUrl = URL.createObjectURL(file);
 			objectUrls.current.push(thumbUrl);
-			return {
-				key: `${file.name}-${file.lastModified}-${Math.random()}`,
-				name: file.name,
-				thumbUrl,
-				phase: { phase: 'reading' }
-			};
+			return { key, name: file.name, thumbUrl, phase: { phase: 'reading' } };
 		});
 		setRows((prev) => [...prev, ...newRows]);
 
@@ -393,7 +421,14 @@ export default function BulkUpload() {
 				<ul className="bulk-list">
 					{visibleRows.map((row) => (
 						<li key={row.key} className="bulk-row">
-							<img src={row.thumbUrl} alt="" />
+							<img
+								src={row.thumbUrl}
+								alt=""
+								onError={(e) => {
+									e.currentTarget.onerror = null; // avoid a retry loop if the fallback itself fails to render
+									handleThumbError(row.key);
+								}}
+							/>
 							<div className="bulk-row-info">
 								<span className="name">{row.name}</span>
 								{row.phase.phase === 'reading' && <span className="status">Reading photo…</span>}

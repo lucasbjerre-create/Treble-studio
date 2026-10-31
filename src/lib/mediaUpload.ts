@@ -74,6 +74,23 @@ async function decodeToBitmap(file: File, onConverting: () => void): Promise<Ima
 }
 
 /**
+ * A displayable object URL for a local file, before it's ever uploaded -
+ * BulkUpload's row-thumbnail fallback. Most formats render fine straight
+ * from URL.createObjectURL(file); this is only for one that doesn't - in
+ * practice HEIC on a browser with no native HEIC image support (Safari
+ * renders it fine as-is and never needs this). Goes through the same
+ * decode path uploadPhotoToEntry itself uses (native first, heic-to
+ * fallback), so there's one answer for "can this browser open this file",
+ * not two that could disagree.
+ */
+export async function decodableThumbnailUrl(file: File): Promise<string> {
+	const bitmap = await decodeToBitmap(file, () => {});
+	const blob = await resizeToWebp(bitmap, 160);
+	bitmap.close();
+	return URL.createObjectURL(blob);
+}
+
+/**
  * Reads EXIF and computes the sha256 of the original file, before anything
  * else touches it (studio.md). Split out from uploadPhotoToEntry so callers
  * that need to know the hash first - BulkUpload's duplicate check - don't
