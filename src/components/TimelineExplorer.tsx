@@ -19,6 +19,12 @@ import {
 
 let workerUrlSet = false;
 
+// Shared between the Popup's own `offset`/`maxWidth` options and the camera
+// math in syncMapToState, which needs the same numbers to center the camera
+// on the popup rather than on the marker underneath it.
+const ENTRY_POPUP_OFFSET = 18;
+const ENTRY_POPUP_MAX_WIDTH = 220;
+
 export interface ExplorerEntry extends TimelineEntry {
 	slug: string;
 	title: string;
@@ -75,6 +81,25 @@ function writeDateToUrl(date: string) {
 function cssVar(name: string, fallback: string): string {
 	const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 	return value || fallback;
+}
+
+/**
+ * How tall the entry popup's photo+title card will render, found by laying
+ * it out off-screen at its real width first. Needed before syncMapToState
+ * points the camera, since a portrait photo makes a much taller card than a
+ * landscape one and the camera offset has to match whichever this entry is.
+ */
+function measurePopupContentHeight(content: HTMLElement): number {
+	const probe = document.createElement('div');
+	probe.style.position = 'absolute';
+	probe.style.visibility = 'hidden';
+	probe.style.pointerEvents = 'none';
+	probe.style.width = `${ENTRY_POPUP_MAX_WIDTH}px`;
+	probe.appendChild(content.cloneNode(true));
+	document.body.appendChild(probe);
+	const height = probe.offsetHeight;
+	document.body.removeChild(probe);
+	return height;
 }
 
 interface SeatStyle {
@@ -402,12 +427,17 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 			// entry, never per photo"), just a small preview of the day you're
 			// looking at right now. No close button: it isn't a dismissable
 			// dialog, it's a label that always reflects the current date.
+			// Fixed 'bottom' anchor (popup sits above the point, tip pointing
+			// down at it) rather than MapLibre's automatic placement: syncMapToState
+			// below shifts the camera to keep this popup centered, which only works
+			// if the popup always lands on the same side of the point.
 			entryPopupRef.current = new Popup({
 				closeButton: false,
 				closeOnClick: false,
-				offset: 18,
+				anchor: 'bottom',
+				offset: ENTRY_POPUP_OFFSET,
 				className: 'entry-popup',
-				maxWidth: '220px'
+				maxWidth: `${ENTRY_POPUP_MAX_WIDTH}px`
 			});
 
 			syncMapToState();
@@ -519,6 +549,9 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 		// ready for several; this component isn't rendering group UI yet.
 		const activeEntry = entries.find((e) => e.id === state.activeEntries[0]?.id);
 		const activeCoords = placeCoords(places, activeEntry?.placeId ?? null);
+		// Built up front (not inside the popup block below) because the camera
+		// move needs its height before it can decide where to point the marker.
+		const popupContent = activeEntry ? buildEntryPopupContent(activeEntry) : null;
 
 		if (activeCoords) {
 			const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -532,6 +565,16 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 			);
 			const duration = reducedMotion ? 0 : activeLeg ? CAMERA_CINEMATIC_MS : CAMERA_MOVE_MS;
 
+			// The photo popup is what the reader is actually looking at - the
+			// marker underneath it is just where it's anchored - so the camera
+			// centers on the popup's own midpoint, not the marker's coordinate.
+			// Since the popup is pinned 'bottom'-anchored (it sits above the
+			// marker, see entryPopupRef's setup), that means pushing the marker
+			// down from screen center by half of the popup's own on-screen height,
+			// leaving the popup itself sitting in the middle of the viewport.
+			const popupHeight = popupContent ? measurePopupContentHeight(popupContent) : 0;
+			const cameraOffsetY = popupContent ? (ENTRY_POPUP_OFFSET + popupHeight) / 2 : 0;
+
 			// Zooms in on wherever the slider is pointing, rather than fitting the
 			// whole revealed-so-far route - the reader is looking at one day at a
 			// time (the point of the slider having its own date stamp), not an
@@ -541,12 +584,12 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 			// jump and a simple, closer pan on a short one. The muted past route
 			// and its markers are still drawn (state.visibleMarkers above) and
 			// still clickable once a reader zooms out by hand.
-			map.flyTo({ center: activeCoords, zoom: MAP_DEFAULT_ZOOM + 5, duration });
+			map.flyTo({ center: activeCoords, zoom: MAP_DEFAULT_ZOOM + 5, duration, offset: [0, cameraOffsetY] });
 		}
 
 		const popup = entryPopupRef.current;
-		if (popup && activeCoords && activeEntry) {
-			popup.setLngLat(activeCoords).setDOMContent(buildEntryPopupContent(activeEntry)).addTo(map);
+		if (popup && activeCoords && popupContent) {
+			popup.setLngLat(activeCoords).setDOMContent(popupContent).addTo(map);
 		} else {
 			popup?.remove();
 		}
