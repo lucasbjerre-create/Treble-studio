@@ -67,6 +67,13 @@
 	display: block;
 	width: 100%;
 	height: auto;
+	/* Belt and suspenders alongside the <img>'s own draggable={false} -
+	   Safari in particular can still start its native image-drag gesture
+	   (ghost thumbnail, drop-to-bookmark-bar) from a plain pointerdown
+	   without this, which is what hijacked drawing a box. */
+	-webkit-user-drag: none;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 .face-box {

@@ -14,8 +14,14 @@ import { pixelRectToFraction } from './boxes';
 // so a face box's meaning never shifts under an unrelated page load.
 const TASKS_VISION_VERSION = '1.1.1';
 const WASM_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TASKS_VISION_VERSION}/wasm`;
+// BlazeFace (full-range), not (short-range): short-range is trained for
+// selfie-style shots within ~2m of a front-facing camera and, verified
+// directly against this project's own real back-camera group photos, missed
+// every face but the nearest one. Full-range is the variant Google's own
+// guide names for "images from a smartphone camera... back-facing" with
+// "single or multiple faces" - exactly this studio's photos.
 const MODEL_URL =
-	'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
+	'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/1/blaze_face_full_range.tflite';
 
 // Module-level singleton: the ~13.5MB WASM runtime is fetched at most once
 // per page session (then cached by the browser), not once per photo.
@@ -30,7 +36,17 @@ async function getDetector(): Promise<FaceDetector> {
 				baseOptions: { modelAssetPath: MODEL_URL },
 				runningMode: 'IMAGE'
 			});
-		})();
+		})().catch((err) => {
+			// A rejected promise is still truthy, so without this a single
+			// transient failure (a flaky CDN fetch of the ~13.5MB WASM runtime,
+			// easy to hit from a phone on Sunday-in-/studio cellular) would
+			// permanently poison every later "Detect faces" click for the rest
+			// of the page session, not just that one - this is what "works
+			// sometimes" actually was. Resetting here means the next attempt
+			// starts fresh instead of replaying the same cached rejection.
+			detectorPromise = null;
+			throw err;
+		});
 	}
 	return detectorPromise;
 }

@@ -89,6 +89,13 @@ export default function PhotoPeopleTags({ media, knownNames, onChange }: Props) 
 
 	function onPointerDown(e: React.PointerEvent) {
 		if (!drawing) return;
+		// Without this, the browser's own "drag this image" gesture (ghost
+		// thumbnail, drop-to-bookmark-bar) competes with drawing a box - on a
+		// real photo it usually wins, which is what "dragging the image
+		// instead of a box" was. draggable={false} on the <img> below stops it
+		// from starting at all; this is a second guard for a pointerdown that
+		// still reaches here before that takes effect.
+		e.preventDefault();
 		const p = pointFromEvent(e);
 		setDragStart(p);
 		setLiveDrag({ x: p.x, y: p.y, w: 0, h: 0 });
@@ -179,7 +186,7 @@ export default function PhotoPeopleTags({ media, knownNames, onChange }: Props) 
 						onPointerMove={onPointerMove}
 						onPointerUp={onPointerUp}
 					>
-						<img ref={imgRef} src={`/api/studio/media-file/${imageKey}`} alt="" />
+						<img ref={imgRef} src={`/api/studio/media-file/${imageKey}`} alt="" draggable={false} />
 
 						{media.people.map((tag) => (
 							<div
