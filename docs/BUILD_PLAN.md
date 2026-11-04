@@ -147,11 +147,13 @@ Start milestone 4 from docs/BUILD_PLAN.md. Read spec sections 8 and 9. Plan the 
 
 Before continuing past milestone 4, decide whether this stays Lucas's own site or becomes a group site for TREBLE scholars (see spec section 10). Milestone 3's `src/lib/timeline.ts` and the explore view were already built multi-person-ready for this, without building any group feature itself.
 
+**Decided 2026-10-26: group.** Milestone 5 is built (see below). Milestone 6 (second trebler) has not been started - no contributor onboarding, storage quota, or crossing map marker exists yet.
+
 - **If group**: build milestones 5 and 6 below next. Milestone 7 (Family layer and privacy hardening) may end up partly superseded rather than built exactly as originally scoped, since milestone 5 is designed to replace the Access family list.
 - **If solo**: skip straight to milestone 7 and the solo path continues exactly as originally planned.
 
 ### Milestone 5. Viewers and followers
-About a day.
+About a day. **Built 2026-10-26.**
 - The site's own email-code login (a one-time code or magic link), replacing Cloudflare Access for family-tier viewing. `/studio` keeps using Access.
 - A `follows` table: follower identity (email), the person they follow, status, created_at.
 - Family-tier entries become follower-only per person - a follower of Anna isn't automatically a follower of Lucas. This is the "family" to "followers of this person" shift flagged in spec section 14.
@@ -219,6 +221,16 @@ A "Slideshow/Diasshow" link on `/[lang]/[person]/explore` opens `/[lang]/[person
 - Privacy boundary: `listMediaForPersonViewer` (`src/db/queries.ts`) reuses `entryVisibilityWhere`, the exact filter every public/family query already uses - no parallel rule. Scoped to `kind = 'photo'` only. The paginated `GET /api/slideshow/:personSlug` endpoint (`src/worker/api/slideshow.ts`) resolves the viewer from the session cookie the same way `middleware.ts` does for pages, and never returns a count of photos the viewer can't see - only `hasMore`.
 - No-autoplay: playback starts only after Play is pressed, pauses on tab-hide and on any control interaction, and never auto-resumes.
 - Pure sequencing/layout logic lives in `src/lib/slideshow.ts` (composition grouping, next/previous with wrap, speed-to-duration, reduced-motion override, stored-preference validation), unit tested independent of the DB and the UI.
+
+### Bulk upload, drafts, face tagging, and timestamp fixes
+Not numbered milestones - built as direct studio requests between milestone 5 and now (2026-10-27 to 2026-11-01), ahead of milestone 9's fuller smart-ingest design. This is the minimum that let Lucas publish faster from a real phone, not the resumable-upload/import-report/route-card version milestone 9 describes - that's still to build.
+
+- **Bulk upload** (`src/components/BulkUpload.tsx`): select or drag-and-drop several photos at once, each becoming its own draft entry; opens the first draft immediately and uploads the rest behind it. HEIC/HEIF photos, including 10-bit/HDR iPhone shots, decode via `heic-to` (`src/lib/mediaUpload.ts`) on browsers with no native HEIC support.
+- **Drafts**: delete, bulk-delete, and an 8-day auto-expiry (`src/lib/draftExpiry.ts`, `DRAFT_EXPIRY_DAYS` in `src/config/site.ts`) so abandoned drafts don't pile up.
+- **Face tagging** (`src/lib/faceDetection.ts`, `src/components/PhotoPeopleTags.tsx`): on-device face detection (BlazeFace full-range model; nothing leaves the device) assists free-text people tags. Tagged names show below a published photo, never overlaid on it. A failed model load retries instead of staying broken for the rest of the session.
+- **Photo timestamps**: prefers the photo's own GPS-UTC EXIF timestamp over `CreateDate` (camera local time, which used to drift with the uploading browser's own timezone), falling back and warning when neither is present.
+- **Studio UX**: default audience is public (family/private stay opt in per entry, per the section 14 decision above), starred places become one-tap quick-select chips, the entries list's select-all splits by status, and entries can be unpublished (hidden, not deleted).
+- **Map/explore polish**: tapping the active marker shows a photo+title popup, the explore camera centers on the photo's own aspect-correct view rather than snapping to the pin, and campus markers use the real UNC/SMU/CBS crests.
 
 ---
 
