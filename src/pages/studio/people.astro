@@ -1,0 +1,231 @@
+---
+import StudioLayout from '../../layouts/StudioLayout.astro';
+import { getDb } from '../../db/client';
+import { getPersonByEmail } from '../../db/queries';
+import { PRIMARY_PERSON_SLUG } from '../../config/site';
+import * as schema from '../../db/schema';
+import { asc } from 'drizzle-orm';
+
+const db = getDb();
+const person = await getPersonByEmail(db, Astro.locals.accessEmail);
+if (!person) {
+	return new Response('No person record matches this account', { status: 403 });
+}
+if (person.slug !== PRIMARY_PERSON_SLUG) {
+	return new Response('Only the primary scholar can manage contributors', { status: 403 });
+}
+
+const people = await db.select().from(schema.people).orderBy(asc(schema.people.id));
+---
+
+<StudioLayout title="People">
+	<main class="studio">
+		<div class="top-row">
+			<h1>People</h1>
+			<div class="top-row-actions">
+				<a class="link" href="/studio">Entries</a>
+				<a class="link" href="/studio/followers">Followers</a>
+				<a class="link" href="/studio/crossings">Crossings</a>
+			</div>
+		</div>
+
+		<ul class="people-list">
+			{
+				people.map((p) => (
+					<li>
+						<span class="name">{p.displayName}</span>
+						<span class="slug">/{p.slug}</span>
+						<span class="email">{p.email}</span>
+						<span class="role">{p.role}</span>
+					</li>
+				))
+			}
+		</ul>
+
+		<h2>Add a scholar</h2>
+		<p class="hint">
+			This creates their person record. They still need their email added to the Access policy protecting <code>/studio</code>
+			before they can actually sign in - that step is in the Cloudflare dashboard, not here.
+		</p>
+		<form id="new-person">
+			<label>
+				Slug
+				<input type="text" name="slug" pattern="[-a-z0-9]+" required placeholder="anna" />
+			</label>
+			<label>
+				Display name
+				<input type="text" name="displayName" required placeholder="Anna" />
+			</label>
+			<label>
+				Email
+				<input type="email" name="email" required placeholder="anna@example.com" />
+			</label>
+			<label>
+				Seat
+				<input type="number" name="seat" min="1" placeholder="2" />
+			</label>
+			<button type="submit">Add</button>
+			<p class="error" hidden></p>
+		</form>
+	</main>
+</StudioLayout>
+
+<script>
+	// Plain fetch on submit rather than a React island - same convention as
+	// followers.astro, for a form this small.
+	const form = document.querySelector<HTMLFormElement>('#new-person');
+	form?.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const errorEl = form.querySelector<HTMLParagraphElement>('.error')!;
+		errorEl.hidden = true;
+
+		const data = new FormData(form);
+		const seat = data.get('seat');
+		const body = {
+			slug: data.get('slug'),
+			displayName: data.get('displayName'),
+			email: data.get('email'),
+			seat: seat ? Number(seat) : null
+		};
+
+		const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+		submitButton.disabled = true;
+		try {
+			const res = await fetch('/api/studio/people', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			if (res.ok) {
+				location.reload();
+			} else {
+				const payload = (await res.json().catch(() => null)) as { error?: unknown } | null;
+				errorEl.textContent = typeof payload?.error === 'string' ? payload.error : 'Could not add that person.';
+				errorEl.hidden = false;
+				submitButton.disabled = false;
+			}
+		} catch {
+			errorEl.textContent = 'Could not reach the server.';
+			errorEl.hidden = false;
+			submitButton.disabled = false;
+		}
+	});
+</script>
+
+<style>
+	.studio {
+		max-width: 40rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--grid-margin) var(--space-12);
+		font-family: var(--font-sans);
+	}
+
+	.top-row {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: center;
+		gap: var(--space-3);
+		margin-bottom: var(--space-6);
+	}
+
+	.top-row-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-3) var(--space-4);
+	}
+
+	h1 {
+		font-family: var(--font-serif);
+		font-size: var(--text-h2);
+		margin: 0;
+	}
+
+	h2 {
+		font-family: var(--font-serif);
+		font-size: var(--text-h3);
+		margin: var(--space-8) 0 var(--space-3);
+	}
+
+	.link {
+		color: var(--color-link);
+		font-size: var(--text-small);
+	}
+
+	.hint {
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
+	}
+
+	.people-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.people-list li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-3);
+		min-height: var(--touch-min);
+		padding: var(--space-2) 0;
+		border-top: var(--border-hairline);
+	}
+
+	.name {
+		font-weight: 600;
+	}
+
+	.slug,
+	.email,
+	.role {
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
+	}
+
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		max-width: 24rem;
+	}
+
+	label {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--text-small);
+	}
+
+	input {
+		min-height: var(--touch-min);
+		padding: 0 var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-xs);
+		background: var(--color-surface);
+		color: var(--color-text);
+	}
+
+	button[type='submit'] {
+		min-height: var(--touch-min);
+		padding: 0 var(--space-4);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-xs);
+		background: var(--color-primary);
+		color: var(--color-on-primary);
+		cursor: pointer;
+		align-self: flex-start;
+	}
+
+	button[type='submit']:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
+
+	.error {
+		color: var(--color-error);
+		font-size: var(--text-small);
+	}
+</style>

@@ -22,3 +22,6 @@ export const LOGIN_CODE_EXPIRY_MINUTES = 10;
 
 /** A draft nobody finished auto-deletes this many days after it was created (never a published entry). Day-granularity only, by design - see src/lib/draftExpiry.ts. */
 export const DRAFT_EXPIRY_DAYS = 8;
+
+/** Per-person R2 storage cap, milestone 6 (spec section 8: 10 GB split across 15 people is under 700 MB each). Enforced in src/worker/api/studio.ts's media presign/commit routes. */
+export const PER_PERSON_QUOTA_BYTES = 700 * 1024 * 1024;

@@ -1,8 +1,10 @@
 ---
 import EntryList from '../../components/EntryList';
+import StorageQuotaMeter from '../../components/StorageQuotaMeter.astro';
 import StudioLayout from '../../layouts/StudioLayout.astro';
+import { PER_PERSON_QUOTA_BYTES, PRIMARY_PERSON_SLUG } from '../../config/site';
 import { getDb } from '../../db/client';
-import { getPersonByEmail, listEntrySummariesForPerson } from '../../db/queries';
+import { getPersonByEmail, listEntrySummariesForPerson, sumMediaBytesForOwner } from '../../db/queries';
 import { sweepStaleDrafts } from '../../worker/entryDeletion';
 
 const db = getDb();
@@ -16,6 +18,7 @@ const now = new Date().toISOString();
 // below is even read - see entryDeletion.ts.
 await sweepStaleDrafts(db, person.id, now);
 const entries = await listEntrySummariesForPerson(db, person.id);
+const usedBytes = await sumMediaBytesForOwner(db, person.id);
 ---
 
 <StudioLayout title="Entries">
@@ -24,10 +27,14 @@ const entries = await listEntrySummariesForPerson(db, person.id);
 			<h1>Entries</h1>
 			<div class="top-row-actions">
 				<a class="link" href="/studio/followers">Followers</a>
+				<a class="link" href="/studio/crossings">Crossings</a>
+				{person.slug === PRIMARY_PERSON_SLUG && <a class="link" href="/studio/people">People</a>}
 				<a class="link" href="/studio/entries/bulk">Bulk upload</a>
 				<a class="button" href="/studio/entries/new">New entry</a>
 			</div>
 		</div>
+
+		<StorageQuotaMeter usedBytes={usedBytes} quotaBytes={PER_PERSON_QUOTA_BYTES} />
 
 		<EntryList client:only="react" entries={entries} />
 	</main>
@@ -43,15 +50,18 @@ const entries = await listEntrySummariesForPerson(db, person.id);
 
 	.top-row {
 		display: flex;
+		flex-wrap: wrap;
 		justify-content: space-between;
 		align-items: center;
+		gap: var(--space-3);
 		margin-bottom: var(--space-6);
 	}
 
 	.top-row-actions {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--space-4);
+		gap: var(--space-3) var(--space-4);
 	}
 
 	.link {

@@ -147,7 +147,7 @@ Start milestone 4 from docs/BUILD_PLAN.md. Read spec sections 8 and 9. Plan the 
 
 Before continuing past milestone 4, decide whether this stays Lucas's own site or becomes a group site for TREBLE scholars (see spec section 10). Milestone 3's `src/lib/timeline.ts` and the explore view were already built multi-person-ready for this, without building any group feature itself.
 
-**Decided 2026-10-26: group.** Milestone 5 is built (see below). Milestone 6 (second trebler) has not been started - no contributor onboarding, storage quota, or crossing map marker exists yet.
+**Decided 2026-10-26: group.** Milestones 5 and 6 are both built (see below).
 
 - **If group**: build milestones 5 and 6 below next. Milestone 7 (Family layer and privacy hardening) may end up partly superseded rather than built exactly as originally scoped, since milestone 5 is designed to replace the Access family list.
 - **If solo**: skip straight to milestone 7 and the solo path continues exactly as originally planned.
@@ -160,11 +160,11 @@ About a day. **Built 2026-10-26.**
 - If this replaces the Access family list, retire the allowlist-based approach from the original milestone 5 (now 7) rather than running both.
 
 ### Milestone 6. Second trebler
-About a day.
-- Contributor onboarding: invite a second scholar, their own `/studio` access scoped to only their own content.
-- Storage quota per person (R2 usage tracked and capped - spec section 8's budget note: 10 GB split across 15 people is under 700 MB each).
-- A "choose your trebler" home screen that only appears once two or more people have published; before that, the single-person homepage is unchanged.
-- Crossings suggested automatically when two people's entries share the same city and overlapping dates, shown as confirmed only once both people say yes - nothing about a crossing is asserted without both people's say-so, only the suggestion itself is computed rather than purely manual (updates spec section 10's Stage 2 description).
+About a day. **Built 2026-11-05.**
+- Contributor onboarding: invite a second scholar, their own `/studio` access scoped to only their own content. `/studio/people` (gated to the primary person, `PRIMARY_PERSON_SLUG`, not the public `role` column) creates the person row; the Cloudflare Access policy email still has to be added by hand (numbered steps live in the page itself).
+- Storage quota per person (R2 usage tracked and capped - spec section 8's budget note: 10 GB split across 15 people is under 700 MB each). `PER_PERSON_QUOTA_BYTES` in `src/config/site.ts`, enforced in both `/media/presign` (pre-check) and `/media/commit` (authoritative, cleans up the just-uploaded R2 objects on rejection), shown as a meter on `/studio`.
+- A "choose your trebler" home screen that only appears once two or more people have published; before that, the single-person homepage is unchanged. (Already built 2026-10-26, ahead of this milestone.)
+- Crossings suggested automatically when two people's entries share the same city and overlapping dates, shown as confirmed only once both people say yes - nothing about a crossing is asserted without both people's say-so, only the suggestion itself is computed rather than purely manual (updates spec section 10's Stage 2 description). `/studio/crossings` lists live suggestions and lets each participant confirm their own row; the map marker (`src/components/TimelineExplorer.tsx`) only shows once every participant has confirmed, and its popup only ever links the participant(s) whose own entry is actually visible to the current viewer - fixed a real gap along the way, where the crossing queries took one flat viewer tier for a two-person crossing instead of resolving each participant's own per-person family status (`src/db/queries.ts`'s `listConfirmedCrossingsForViewer`/`listEntriesForCrossing`, now keyed by a `Map<personId, Viewer>`).
 
 ---
 

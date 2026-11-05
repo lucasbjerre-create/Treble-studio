@@ -1,5 +1,6 @@
-import { and, asc, desc, eq, getTableColumns, gt, gte, inArray, isNull, lt, lte, or, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, gt, gte, inArray, isNull, lt, lte, or, sum, type SQL } from 'drizzle-orm';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
+import { dateRangesOverlapOrAdjacent, sameParticipants } from '../lib/crossings';
 import * as schema from './schema';
 
 export type Viewer = 'public' | 'family' | 'studio';
@@ -467,21 +468,21 @@ export interface ConfirmedCrossing {
  * which is exactly the kind of cross-person inference the unconfirmed-case
  * rule (never reveal a crossing exists) is also protecting against.
  *
- * Not called from any page yet (the crossing map marker is still unbuilt -
- * see BUILD_PLAN milestone 6). Flagging before it is: `viewer` here is one
- * flat tier applied to every participant's entries via entryVisibilityWhere,
- * but milestone 5 made 'family' a per-person thing (resolveViewerForPerson,
- * a visitor only follows specific people, not everyone). Called naively
- * with 'family' resolved for just one participant, this would also surface
- * the OTHER participant's family-tier entries to a visitor who never
- * followed them. Whoever builds the crossing UI needs either a per-person
- * viewer map here, not one flat Viewer, or to intersect this function's
- * result with each participant's own resolved tier at the call site.
+ * `viewer` is a per-participant map (personId -> that person's own resolved
+ * Viewer tier, from resolveViewerForPerson), not one flat tier for the whole
+ * crossing - milestone 5 made 'family' a per-person thing (a visitor only
+ * follows specific people, not everyone), so a crossing between two people
+ * needs each one checked against their own resolved tier. A flat tier here
+ * would let a visitor who follows only one participant also see the other
+ * participant's family-tier entries purely because they share a crossing.
+ * Studio reads every crossing through listCrossingsForPerson instead, never
+ * through this function, so there is no 'studio' case to special-case here.
  */
 export async function listConfirmedCrossingsForViewer(
 	db: Database,
-	viewer: Viewer,
-	now: string
+	viewerByPerson: Map<number, Viewer>,
+	now: string,
+	opts: { personId?: number } = {}
 ): Promise<ConfirmedCrossing[]> {
 	const participantRows = await db
 		.select({
@@ -499,7 +500,12 @@ export async function listConfirmedCrossingsForViewer(
 	}
 
 	const confirmedIds = [...byCrossing.entries()]
-		.filter(([, participants]) => participants.length >= 2 && participants.every((p) => p.confirmed))
+		.filter(
+			([, participants]) =>
+				participants.length >= 2 &&
+				participants.every((p) => p.confirmed) &&
+				(opts.personId === undefined || participants.some((p) => p.personId === opts.personId))
+		)
 		.map(([id]) => id);
 	if (confirmedIds.length === 0) return [];
 
@@ -513,11 +519,9 @@ export async function listConfirmedCrossingsForViewer(
 		personIds: (byCrossing.get(c.id) ?? []).map((p) => p.personId)
 	}));
 
-	if (viewer === 'studio') return crossings;
-
 	const visible = await Promise.all(
 		crossings.map(async (crossing) => {
-			const entries = await listEntriesForCrossing(db, viewer, crossing, now);
+			const entries = await listEntriesForCrossing(db, viewerByPerson, crossing, now);
 			return entries.length > 0 ? crossing : null;
 		})
 	);
@@ -525,25 +529,168 @@ export async function listConfirmedCrossingsForViewer(
 }
 
 /**
- * Each participant's own entries for a confirmed crossing, filtered by the
- * same viewer-audience rule as everywhere else (entryVisibilityWhere) - a
- * public viewer gets only the public, non-delayed entries from whichever
- * participants have any, never a family or private entry from either person
- * just because the crossing itself is confirmed.
+ * Each participant's own entries for a confirmed crossing, each checked
+ * against that one participant's own resolved viewer tier (see
+ * listConfirmedCrossingsForViewer) - a visitor who follows only one
+ * participant gets only that person's visible entries, never the other
+ * participant's family/private entries just because the crossing itself is
+ * confirmed. A participant missing from the map is treated as 'public'.
  */
-export async function listEntriesForCrossing(db: Database, viewer: Viewer, crossing: ConfirmedCrossing, now: string) {
+export async function listEntriesForCrossing(
+	db: Database,
+	viewerByPerson: Map<number, Viewer>,
+	crossing: ConfirmedCrossing,
+	now: string
+) {
+	const perParticipant = crossing.personIds.map((personId) =>
+		combine(eq(schema.entries.personId, personId), entryVisibilityWhere(viewerByPerson.get(personId) ?? 'public', now))
+	);
+	const visibility = perParticipant.length === 1 ? perParticipant[0] : or(...perParticipant.filter((c): c is SQL => c !== undefined));
+
 	const where = combine(
-		entryVisibilityWhere(viewer, now),
+		visibility,
 		eq(schema.entries.placeId, crossing.placeId),
-		inArray(schema.entries.personId, crossing.personIds),
 		gte(schema.entries.occurredAt, `${crossing.startsOn}T00:00:00.000Z`),
 		lte(schema.entries.occurredAt, `${crossing.endsOn}T23:59:59.999Z`)
 	);
 
-	const columns = viewer === 'studio' ? getTableColumns(schema.entries) : publicEntryColumns;
-	let query = db.select(columns).from(schema.entries).$dynamic();
+	let query = db.select(publicEntryColumns).from(schema.entries).$dynamic();
 	if (where) query = query.where(where);
 	return query.orderBy(asc(schema.entries.occurredAt));
+}
+
+/**
+ * Studio-only: every crossing (confirmed or not) involving personId, with
+ * its full participant list and confirmed status. Unfiltered by audience -
+ * this is the owner reviewing their own crossings, same trust level as any
+ * other studio-only query in this file.
+ */
+export async function listCrossingsForPerson(db: Database, personId: number) {
+	const participantRows = await db
+		.select({
+			crossingId: schema.crossingParticipants.crossingId,
+			personId: schema.crossingParticipants.personId,
+			confirmed: schema.crossingParticipants.confirmed,
+			confirmedAt: schema.crossingParticipants.confirmedAt,
+			displayName: schema.people.displayName
+		})
+		.from(schema.crossingParticipants)
+		.innerJoin(schema.people, eq(schema.people.id, schema.crossingParticipants.personId));
+
+	const byCrossing = new Map<number, (typeof participantRows)[number][]>();
+	for (const row of participantRows) {
+		const list = byCrossing.get(row.crossingId) ?? [];
+		list.push(row);
+		byCrossing.set(row.crossingId, list);
+	}
+
+	const ownCrossingIds = [...byCrossing.entries()]
+		.filter(([, participants]) => participants.some((p) => p.personId === personId))
+		.map(([id]) => id);
+	if (ownCrossingIds.length === 0) return [];
+
+	const crossingRows = await db.select().from(schema.crossings).where(inArray(schema.crossings.id, ownCrossingIds));
+
+	return crossingRows.map((c) => ({
+		id: c.id,
+		placeId: c.placeId,
+		startsOn: c.startsOn,
+		endsOn: c.endsOn,
+		participants: (byCrossing.get(c.id) ?? []).map((p) => ({
+			personId: p.personId,
+			displayName: p.displayName,
+			confirmed: p.confirmed,
+			confirmedAt: p.confirmedAt
+		}))
+	}));
+}
+
+/**
+ * Idempotent: a suggestion that matches an already-existing crossing at the
+ * same place, with the same participants, on an overlapping/adjacent date
+ * range returns that crossing unchanged rather than inserting a duplicate -
+ * suggestCrossings recomputes the same suggestion every time it's asked, so
+ * this is the dedupe check that makes "suggest" safe to call repeatedly.
+ */
+export async function createCrossingFromSuggestion(
+	db: Database,
+	input: { placeId: number; personIds: number[]; startsOn: string; endsOn: string },
+	now: string
+) {
+	const candidates = await db.select().from(schema.crossings).where(eq(schema.crossings.placeId, input.placeId));
+	for (const candidate of candidates) {
+		if (!dateRangesOverlapOrAdjacent(candidate, input)) continue;
+		const participantRows = await db
+			.select({ personId: schema.crossingParticipants.personId })
+			.from(schema.crossingParticipants)
+			.where(eq(schema.crossingParticipants.crossingId, candidate.id));
+		if (sameParticipants(participantRows.map((p) => p.personId), input.personIds)) return candidate;
+	}
+
+	const [crossing] = await db
+		.insert(schema.crossings)
+		.values({ placeId: input.placeId, startsOn: input.startsOn, endsOn: input.endsOn, createdAt: now })
+		.returning();
+	await db
+		.insert(schema.crossingParticipants)
+		.values(input.personIds.map((personId) => ({ crossingId: crossing.id, personId, confirmed: false })));
+	return crossing;
+}
+
+/** Returns false if personId isn't actually a participant in crossingId, rather than silently no-op-ing. */
+export async function confirmCrossingParticipant(db: Database, crossingId: number, personId: number, now: string): Promise<boolean> {
+	const result = await db
+		.update(schema.crossingParticipants)
+		.set({ confirmed: true, confirmedAt: now })
+		.where(and(eq(schema.crossingParticipants.crossingId, crossingId), eq(schema.crossingParticipants.personId, personId)))
+		.returning();
+	return result.length > 0;
+}
+
+export interface PersonSummary {
+	slug: string;
+	displayName: string;
+	seat: number | null;
+}
+
+/**
+ * personId -> {slug, displayName, seat}, for turning a crossing's entries
+ * into links and marker colours without a per-entry join. Public-safe
+ * columns only (same set as publicPersonColumns) - a crossing can involve a
+ * participant who isn't the page's own person, so the caller can't assume
+ * that person is already in its own `people` prop/lookup.
+ */
+export async function listPersonSummariesByIds(db: Database, ids: number[]): Promise<Map<number, PersonSummary>> {
+	if (ids.length === 0) return new Map();
+	const rows = await db
+		.select({ id: schema.people.id, slug: schema.people.slug, displayName: schema.people.displayName, seat: schema.people.seat })
+		.from(schema.people)
+		.where(inArray(schema.people.id, ids));
+	return new Map(rows.map((r) => [r.id, { slug: r.slug, displayName: r.displayName, seat: r.seat }]));
+}
+
+/**
+ * Whether a person with this slug or email already exists - people.email
+ * has no DB-level unique constraint (unlike slug), so this is the only
+ * thing stopping two rows from sharing an email, which would make
+ * getPersonByEmail's Access-identity lookup resolve to the wrong person.
+ */
+export async function personSlugOrEmailInUse(db: Database, slug: string, email: string): Promise<boolean> {
+	const rows = await db
+		.select({ id: schema.people.id })
+		.from(schema.people)
+		.where(or(eq(schema.people.slug, slug), eq(schema.people.email, email)))
+		.limit(1);
+	return rows.length > 0;
+}
+
+/** Total bytes stored across every media row this person owns - the raw usage number quota checks compare against PER_PERSON_QUOTA_BYTES. */
+export async function sumMediaBytesForOwner(db: Database, ownerId: number): Promise<number> {
+	const [row] = await db
+		.select({ value: sum(schema.media.bytes) })
+		.from(schema.media)
+		.where(eq(schema.media.ownerId, ownerId));
+	return Number(row?.value ?? 0);
 }
 
 /**

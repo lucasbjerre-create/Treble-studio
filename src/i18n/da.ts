@@ -17,7 +17,9 @@ export const da: Dictionary = {
 		title: 'Udforsk ruten',
 		nonMapAlternative: 'Foretrækker du intet kort? Læs journalen i stedet.',
 		openMap: 'Kort',
-		closeMap: 'Luk kortet'
+		closeMap: 'Luk kortet',
+		// Provisional wording - flag for Lucas to adjust in /studio if it doesn't sound right.
+		crossingMarker: 'Scholarer der krydsede veje her'
 	},
 	entry: {
 		previous: 'Ældre',

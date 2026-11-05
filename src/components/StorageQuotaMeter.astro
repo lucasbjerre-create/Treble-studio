@@ -1,0 +1,53 @@
+---
+import { formatBytes } from '../lib/text';
+
+interface Props {
+	usedBytes: number;
+	quotaBytes: number;
+}
+
+const { usedBytes, quotaBytes } = Astro.props;
+const fraction = quotaBytes > 0 ? Math.min(1, usedBytes / quotaBytes) : 0;
+
+const RADIUS = 15;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const offset = CIRCUMFERENCE * (1 - fraction);
+const label = `${formatBytes(usedBytes)} of ${formatBytes(quotaBytes)} used`;
+---
+
+<div class="storage-quota-meter" role="status" aria-label={label}>
+	<svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
+		<circle class="ring-track" cx="18" cy="18" r={RADIUS} />
+		<circle class="ring-fill" cx="18" cy="18" r={RADIUS} style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: offset }} />
+	</svg>
+	<!-- Text caption always present, never colour/fraction alone - same accessibility rule as VisibilityBadge.astro. -->
+	<span class="caption">{label}</span>
+</div>
+
+<style>
+	.storage-quota-meter {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
+	}
+
+	svg {
+		flex-shrink: 0;
+		transform: rotate(-90deg);
+	}
+
+	.ring-track {
+		fill: none;
+		stroke: var(--color-border);
+		stroke-width: 3;
+	}
+
+	.ring-fill {
+		fill: none;
+		stroke: var(--color-primary);
+		stroke-width: 3;
+		stroke-linecap: round;
+	}
+</style>

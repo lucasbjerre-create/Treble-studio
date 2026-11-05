@@ -28,13 +28,35 @@ export interface CrossingSuggestion {
 	endsOn: string;
 }
 
-function datesOverlapOrAdjacent(a: Stay, b: Stay): boolean {
-	// Consecutive-day stays merge into one crossing (map-theme.json: "Merge
-	// consecutive days at the same place into one crossing"), so a gap of
-	// exactly one day still counts - only a gap of two or more days doesn't.
+export interface DateRange {
+	/** Inclusive, 'YYYY-MM-DD'. */
+	startsOn: string;
+	/** Inclusive, 'YYYY-MM-DD'. */
+	endsOn: string;
+}
+
+/**
+ * Consecutive-day ranges merge into one crossing (map-theme.json: "Merge
+ * consecutive days at the same place into one crossing"), so a gap of
+ * exactly one day still counts - only a gap of two or more days doesn't.
+ * Exported for createCrossingFromSuggestion's dedupe check (src/db/queries.ts).
+ */
+export function dateRangesOverlapOrAdjacent(a: DateRange, b: DateRange): boolean {
 	const aEnd = addDays(a.endsOn, 1);
 	const bEnd = addDays(b.endsOn, 1);
 	return a.startsOn <= bEnd && b.startsOn <= aEnd;
+}
+
+/** Same people, regardless of order - used to recognise an existing crossing as the same one being re-suggested. */
+export function sameParticipants(a: number[], b: number[]): boolean {
+	if (a.length !== b.length) return false;
+	const sortedA = [...a].sort((x, y) => x - y);
+	const sortedB = [...b].sort((x, y) => x - y);
+	return sortedA.every((id, i) => id === sortedB[i]);
+}
+
+function datesOverlapOrAdjacent(a: Stay, b: Stay): boolean {
+	return dateRangesOverlapOrAdjacent(a, b);
 }
 
 function addDays(isoDate: string, days: number): string {

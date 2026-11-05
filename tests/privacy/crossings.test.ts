@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { drizzle } from 'drizzle-orm/d1';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { listConfirmedCrossingsForViewer, listEntriesForCrossing } from '../../src/db/queries';
+import { listConfirmedCrossingsForViewer, listEntriesForCrossing, type Viewer } from '../../src/db/queries';
 import * as schema from '../../src/db/schema';
 
 const now = '2026-10-23T12:00:00.000Z';
@@ -9,6 +9,14 @@ const now = '2026-10-23T12:00:00.000Z';
 function db() {
 	return drizzle(env.DB, { schema });
 }
+
+/** Builds the per-participant viewer map listConfirmedCrossingsForViewer/listEntriesForCrossing now take. */
+function viewers(entries: [number, Viewer][]): Map<number, Viewer> {
+	return new Map(entries);
+}
+
+const crossingA = { id: 1, placeId: 1, startsOn: '2026-09-19', endsOn: '2026-09-20', personIds: [1, 2] };
+const crossingC = { id: 3, placeId: 1, startsOn: '2026-06-01', endsOn: '2026-06-02', personIds: [1, 2] };
 
 beforeAll(async () => {
 	const d = db();
@@ -87,11 +95,10 @@ beforeAll(async () => {
 		{ crossingId: 2, personId: 2, confirmed: false }
 	]);
 
-	// Crossing C: fully confirmed, but neither participant has any entry in
-	// that window a public viewer could see (both family-only) - the
-	// crossing's own metadata (that these two people were in this place on
-	// these dates) must not leak to a public viewer just because it's
-	// confirmed, even though no single entry's content leaks either.
+	// Crossing C: fully confirmed, both participants' entries in that window
+	// are family-only - used both for the "neither visible to public" case
+	// and the per-person-family gap case below (a viewer who follows only
+	// one of the two participants).
 	await d.insert(schema.entries).values([
 		{
 			...baseEntry,
@@ -129,43 +136,54 @@ beforeAll(async () => {
 
 describe('listConfirmedCrossingsForViewer', () => {
 	it('returns the fully-confirmed crossing that has a public entry in it, to a public viewer', async () => {
-		const rows = await listConfirmedCrossingsForViewer(db(), 'public', now);
+		const rows = await listConfirmedCrossingsForViewer(db(), viewers([[1, 'public'], [2, 'public']]), now);
 		expect(rows.map((r) => r.id)).toEqual([1]);
 	});
 
 	it('never returns the crossing where one participant has not confirmed', async () => {
-		const rows = await listConfirmedCrossingsForViewer(db(), 'public', now);
+		const rows = await listConfirmedCrossingsForViewer(db(), viewers([[1, 'public'], [2, 'public']]), now);
 		expect(rows.some((r) => r.id === 2)).toBe(false);
 	});
 
 	it('never returns a confirmed crossing to a public viewer when neither participant has a visible entry in it', async () => {
-		const rows = await listConfirmedCrossingsForViewer(db(), 'public', now);
+		const rows = await listConfirmedCrossingsForViewer(db(), viewers([[1, 'public'], [2, 'public']]), now);
 		expect(rows.some((r) => r.id === 3)).toBe(false);
 	});
 
-	it('a family viewer does see that same crossing, since both participants entries are family-visible', async () => {
-		const rows = await listConfirmedCrossingsForViewer(db(), 'family', now);
+	it('a viewer who is family for both participants does see that same crossing', async () => {
+		const rows = await listConfirmedCrossingsForViewer(db(), viewers([[1, 'family'], [2, 'family']]), now);
 		expect(rows.some((r) => r.id === 3)).toBe(true);
 	});
 
-	it('studio sees every confirmed crossing regardless of entry visibility', async () => {
-		const rows = await listConfirmedCrossingsForViewer(db(), 'studio', now);
+	it('a viewer who follows only one participant still sees the crossing, since that one participant has a visible entry', async () => {
+		const rows = await listConfirmedCrossingsForViewer(db(), viewers([[1, 'family'], [2, 'public']]), now);
+		expect(rows.some((r) => r.id === 3)).toBe(true);
+	});
+
+	it('opts.personId narrows the crossing list to ones that participant is actually in', async () => {
+		const rows = await listConfirmedCrossingsForViewer(db(), viewers([[1, 'family'], [2, 'family']]), now, { personId: 1 });
 		expect(rows.map((r) => r.id).sort()).toEqual([1, 3]);
 	});
 });
 
 describe('listEntriesForCrossing', () => {
 	it('a public viewer sees only the public participant entry, never the family-only one', async () => {
-		const crossings = await listConfirmedCrossingsForViewer(db(), 'studio', now);
-		const crossing = crossings.find((c) => c.id === 1)!;
-		const rows = await listEntriesForCrossing(db(), 'public', crossing, now);
+		const rows = await listEntriesForCrossing(db(), viewers([[1, 'public'], [2, 'public']]), crossingA, now);
 		expect(rows.map((r) => r.slug)).toEqual(['lucas-crossing-entry']);
 	});
 
-	it('a family viewer sees both participants entries for the same crossing', async () => {
-		const crossings = await listConfirmedCrossingsForViewer(db(), 'studio', now);
-		const crossing = crossings.find((c) => c.id === 1)!;
-		const rows = await listEntriesForCrossing(db(), 'family', crossing, now);
+	it('a viewer who is family for both participants sees both entries for the same crossing', async () => {
+		const rows = await listEntriesForCrossing(db(), viewers([[1, 'family'], [2, 'family']]), crossingA, now);
 		expect(rows.map((r) => r.slug).sort()).toEqual(['anna-crossing-entry', 'lucas-crossing-entry']);
+	});
+
+	it('the per-person-family gap: a viewer who follows only person 1 sees only person 1s family entry, never person 2s', async () => {
+		const rows = await listEntriesForCrossing(db(), viewers([[1, 'family'], [2, 'public']]), crossingC, now);
+		expect(rows.map((r) => r.slug)).toEqual(['lucas-family-only-crossing-entry']);
+	});
+
+	it('a participant missing from the map is treated as public, not leaked as family', async () => {
+		const rows = await listEntriesForCrossing(db(), viewers([[1, 'family']]), crossingC, now);
+		expect(rows.map((r) => r.slug)).toEqual(['lucas-family-only-crossing-entry']);
 	});
 });

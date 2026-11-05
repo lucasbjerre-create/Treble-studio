@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { suggestCrossings, type Stay } from '../../src/lib/crossings';
+import { dateRangesOverlapOrAdjacent, sameParticipants, suggestCrossings, type Stay } from '../../src/lib/crossings';
 
 describe('suggestCrossings', () => {
 	it('suggests a crossing for two people overlapping at the same place', () => {
@@ -69,5 +69,39 @@ describe('suggestCrossings', () => {
 		];
 		const result = suggestCrossings(stays);
 		expect(result).toHaveLength(2);
+	});
+});
+
+describe('dateRangesOverlapOrAdjacent', () => {
+	it('is true for overlapping ranges', () => {
+		expect(dateRangesOverlapOrAdjacent({ startsOn: '2026-09-19', endsOn: '2026-09-21' }, { startsOn: '2026-09-20', endsOn: '2026-09-22' })).toBe(
+			true
+		);
+	});
+
+	it('is true for back-to-back (adjacent) ranges', () => {
+		expect(dateRangesOverlapOrAdjacent({ startsOn: '2026-09-18', endsOn: '2026-09-19' }, { startsOn: '2026-09-20', endsOn: '2026-09-21' })).toBe(
+			true
+		);
+	});
+
+	it('is false for ranges with a real gap', () => {
+		expect(dateRangesOverlapOrAdjacent({ startsOn: '2026-09-10', endsOn: '2026-09-11' }, { startsOn: '2026-09-20', endsOn: '2026-09-21' })).toBe(
+			false
+		);
+	});
+});
+
+describe('sameParticipants', () => {
+	it('is true for the same ids in a different order', () => {
+		expect(sameParticipants([2, 1], [1, 2])).toBe(true);
+	});
+
+	it('is false for different sets of ids', () => {
+		expect(sameParticipants([1, 2], [1, 3])).toBe(false);
+	});
+
+	it('is false for different-sized sets', () => {
+		expect(sameParticipants([1, 2, 3], [1, 2])).toBe(false);
 	});
 });

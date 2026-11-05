@@ -1,0 +1,236 @@
+---
+import StudioLayout from '../../layouts/StudioLayout.astro';
+import { PRIMARY_PERSON_SLUG } from '../../config/site';
+import { getDb } from '../../db/client';
+import { getPersonByEmail, listCrossingsForPerson, listStaysForCrossingSuggestions } from '../../db/queries';
+import { suggestCrossings } from '../../lib/crossings';
+
+const db = getDb();
+const person = await getPersonByEmail(db, Astro.locals.accessEmail);
+if (!person) {
+	return new Response('No person record matches this account', { status: 403 });
+}
+
+const stays = await listStaysForCrossingSuggestions(db);
+const allSuggestions = suggestCrossings(stays).filter((s) => s.personIds.includes(person.id));
+const crossings = await listCrossingsForPerson(db, person.id);
+
+// A suggestion already matched by an existing crossing (same place,
+// overlapping/adjacent dates, same participants) has nothing new to offer -
+// createCrossingFromSuggestion would just hand back that same row anyway.
+const existingPlaceIds = new Set(crossings.map((c) => c.placeId));
+const suggestions = allSuggestions.filter((s) => !existingPlaceIds.has(s.placeId));
+---
+
+<StudioLayout title="Crossings">
+	<main class="studio">
+		<div class="top-row">
+			<h1>Crossings</h1>
+			<div class="top-row-actions">
+				<a class="link" href="/studio">Entries</a>
+				<a class="link" href="/studio/followers">Followers</a>
+				{person.slug === PRIMARY_PERSON_SLUG && <a class="link" href="/studio/people">People</a>}
+			</div>
+		</div>
+
+		<h2>Suggested</h2>
+		{
+			suggestions.length === 0 ? (
+				<p>No new crossings to suggest right now.</p>
+			) : (
+				<ul class="crossing-list">
+					{suggestions.map((s) => (
+						<li>
+							<span class="dates">
+								{s.startsOn} – {s.endsOn}
+							</span>
+							<span class="people">{s.personIds.length} people</span>
+							<button
+								type="button"
+								class="suggest"
+								data-place-id={s.placeId}
+								data-person-ids={JSON.stringify(s.personIds)}
+								data-starts-on={s.startsOn}
+								data-ends-on={s.endsOn}
+							>
+								Suggest
+							</button>
+						</li>
+					))}
+				</ul>
+			)
+		}
+
+		<h2>Crossings</h2>
+		{
+			crossings.length === 0 ? (
+				<p>No crossings yet.</p>
+			) : (
+				<ul class="crossing-list">
+					{crossings.map((c) => {
+						const mine = c.participants.find((p) => p.personId === person.id);
+						return (
+							<li>
+								<span class="dates">
+									{c.startsOn} – {c.endsOn}
+								</span>
+								<span class="participants">
+									{c.participants.map((p) => (
+										<span class="participant" data-confirmed={p.confirmed ? 'true' : 'false'}>
+											{p.displayName}
+										</span>
+									))}
+								</span>
+								{mine && !mine.confirmed && (
+									<button type="button" class="confirm" data-id={c.id}>
+										Confirm
+									</button>
+								)}
+							</li>
+						);
+					})}
+				</ul>
+			)
+		}
+	</main>
+</StudioLayout>
+
+<script>
+	// Plain fetch on click rather than a React island - same convention as
+	// followers.astro.
+	document.querySelectorAll<HTMLButtonElement>('.suggest').forEach((button) => {
+		button.addEventListener('click', async () => {
+			button.disabled = true;
+			try {
+				const res = await fetch('/api/studio/crossings', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						placeId: Number(button.dataset.placeId),
+						personIds: JSON.parse(button.dataset.personIds ?? '[]'),
+						startsOn: button.dataset.startsOn,
+						endsOn: button.dataset.endsOn
+					})
+				});
+				if (res.ok) {
+					location.reload();
+				} else {
+					button.disabled = false;
+				}
+			} catch {
+				button.disabled = false;
+			}
+		});
+	});
+
+	document.querySelectorAll<HTMLButtonElement>('.confirm').forEach((button) => {
+		button.addEventListener('click', async () => {
+			const id = button.dataset.id;
+			button.disabled = true;
+			try {
+				const res = await fetch(`/api/studio/crossings/${id}/confirm`, { method: 'POST' });
+				if (res.ok) {
+					location.reload();
+				} else {
+					button.disabled = false;
+				}
+			} catch {
+				button.disabled = false;
+			}
+		});
+	});
+</script>
+
+<style>
+	.studio {
+		max-width: 40rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--grid-margin) var(--space-12);
+		font-family: var(--font-sans);
+	}
+
+	.top-row {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: center;
+		gap: var(--space-3);
+		margin-bottom: var(--space-6);
+	}
+
+	.top-row-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-3) var(--space-4);
+	}
+
+	h1 {
+		font-family: var(--font-serif);
+		font-size: var(--text-h2);
+		margin: 0;
+	}
+
+	h2 {
+		font-family: var(--font-serif);
+		font-size: var(--text-h3);
+		margin: var(--space-8) 0 var(--space-3);
+	}
+
+	.link {
+		color: var(--color-link);
+		font-size: var(--text-small);
+	}
+
+	.crossing-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.crossing-list li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-3);
+		min-height: var(--touch-min);
+		padding: var(--space-2) 0;
+		border-top: var(--border-hairline);
+	}
+
+	.dates {
+		flex: 1;
+	}
+
+	.people,
+	.participants {
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
+	}
+
+	.participants {
+		display: flex;
+		gap: var(--space-2);
+	}
+
+	.participant[data-confirmed='false']::after {
+		content: ' (unconfirmed)';
+	}
+
+	.suggest,
+	.confirm {
+		min-height: 36px;
+		padding: 0 var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-xs);
+		background: var(--color-surface);
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.suggest:disabled,
+	.confirm:disabled {
+		color: var(--color-text-muted);
+		cursor: default;
+	}
+</style>

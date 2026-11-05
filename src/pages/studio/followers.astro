@@ -1,5 +1,6 @@
 ---
 import StudioLayout from '../../layouts/StudioLayout.astro';
+import { PRIMARY_PERSON_SLUG } from '../../config/site';
 import { getDb } from '../../db/client';
 import { getPersonByEmail, listFollowersForPerson } from '../../db/queries';
 
@@ -16,7 +17,11 @@ const followers = await listFollowersForPerson(db, person.id);
 	<main class="studio">
 		<div class="top-row">
 			<h1>Followers</h1>
-			<a class="link" href="/studio">Entries</a>
+			<div class="top-row-actions">
+				<a class="link" href="/studio">Entries</a>
+				<a class="link" href="/studio/crossings">Crossings</a>
+				{person.slug === PRIMARY_PERSON_SLUG && <a class="link" href="/studio/people">People</a>}
+			</div>
 		</div>
 
 		{
@@ -82,9 +87,18 @@ const followers = await listFollowersForPerson(db, person.id);
 
 	.top-row {
 		display: flex;
+		flex-wrap: wrap;
 		justify-content: space-between;
 		align-items: center;
+		gap: var(--space-3);
 		margin-bottom: var(--space-6);
+	}
+
+	.top-row-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-3) var(--space-4);
 	}
 
 	h1 {

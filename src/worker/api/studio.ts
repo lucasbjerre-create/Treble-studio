@@ -1,24 +1,31 @@
 import { AwsClient } from 'aws4fetch';
 import { env } from 'cloudflare:workers';
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { LOCATION_DELAY_HOURS, R2_BUCKET_NAME } from '../../config/site';
+import { LOCATION_DELAY_HOURS, PER_PERSON_QUOTA_BYTES, PRIMARY_PERSON_SLUG, R2_BUCKET_NAME } from '../../config/site';
 import { getDb } from '../../db/client';
 import {
+	confirmCrossingParticipant,
+	createCrossingFromSuggestion,
 	findMediaBySha256ForOwner,
 	getPersonByEmail,
+	listCrossingsForPerson,
 	listPeopleNamesForPerson,
-	listPlacesForViewer
+	listPlacesForViewer,
+	listStaysForCrossingSuggestions,
+	personSlugOrEmailInUse,
+	sumMediaBytesForOwner
 } from '../../db/queries';
 import * as schema from '../../db/schema';
+import { suggestCrossings } from '../../lib/crossings';
 import { publicCoordinatesForPrecision } from '../../lib/precision';
 import { slugify } from '../../lib/slug';
 import { verifyAccessRequest } from '../auth';
 import { deleteEntryCascade } from '../entryDeletion';
 import { geocodeCity, reverseGeocodeCity } from '../geocoding';
 
-type Variables = { accessEmail: string; personId: number };
+type Variables = { accessEmail: string; personId: number; personSlug: string };
 
 export const studioApi = new Hono<{ Variables: Variables }>();
 
@@ -35,8 +42,16 @@ studioApi.use('*', async (c, next) => {
 
 	c.set('accessEmail', identity.email);
 	c.set('personId', person.id);
+	c.set('personSlug', person.slug);
 	await next();
 });
+
+// Owner-only gate for contributor management - deliberately not the
+// people.role column, which stays pure display text ('scholar') shown on
+// public profiles, never a security check.
+function isPrimaryPerson(c: { get: (key: 'personSlug') => string }): boolean {
+	return c.get('personSlug') === PRIMARY_PERSON_SLUG;
+}
 
 async function requireOwnEntry(db: ReturnType<typeof getDb>, entryId: number, personId: number) {
 	const rows = await db
@@ -389,6 +404,14 @@ studioApi.post('/media/presign', async (c) => {
 	const existing = await requireOwnEntry(db, parsed.data.entryId, c.get('personId'));
 	if (!existing) return c.json({ error: 'Not found' }, 404);
 
+	// Cheap pre-check only - the incoming file's size isn't known until
+	// commit (this request carries no size), so this just stops a new
+	// upload from starting once this person is already over budget.
+	const usedBeforeUpload = await sumMediaBytesForOwner(db, c.get('personId'));
+	if (usedBeforeUpload >= PER_PERSON_QUOTA_BYTES) {
+		return c.json({ error: 'Storage quota reached' }, 409);
+	}
+
 	const uploadId = crypto.randomUUID();
 	const client = new AwsClient({
 		service: 's3',
@@ -453,6 +476,18 @@ studioApi.post('/media/commit', async (c) => {
 	for (const key of [input.keyThumb, input.keyDisplay, input.keyLarge]) {
 		const head = await env.MEDIA.head(key);
 		if (!head) return c.json({ error: `Missing object: ${key}` }, 409);
+	}
+
+	// The authoritative quota check - bytes is only known now, by which point
+	// the objects are already sitting in R2, so a rejection here deletes them
+	// too rather than leaving orphaned bytes silently eating the quota with
+	// no owning row.
+	if (input.bytes != null) {
+		const usedBeforeCommit = await sumMediaBytesForOwner(db, c.get('personId'));
+		if (usedBeforeCommit + input.bytes > PER_PERSON_QUOTA_BYTES) {
+			await Promise.all([input.keyThumb, input.keyDisplay, input.keyLarge].map((key) => env.MEDIA.delete(key)));
+			return c.json({ error: 'Storage quota reached' }, 409);
+		}
 	}
 
 	const [{ value: existingCount }] = await db
@@ -623,5 +658,95 @@ studioApi.post('/followers/:id/revoke', async (c) => {
 	if (existing.length === 0) return c.json({ error: 'Not found' }, 404);
 
 	await db.update(schema.follows).set({ status: 'revoked' }).where(eq(schema.follows.id, id));
+	return c.json({ ok: true });
+});
+
+const newPersonSchema = z.object({
+	slug: z
+		.string()
+		.min(1)
+		.max(60)
+		.regex(/^[a-z0-9-]+$/),
+	displayName: z.string().min(1).max(100),
+	email: z.email(),
+	role: z.string().min(1).max(60).default('scholar'),
+	seat: z.number().int().positive().nullable().optional()
+});
+
+// Both routes below are owner-only - adding a contributor is a decision for
+// the primary person to make, not something a contributor can do to
+// themselves or each other.
+studioApi.get('/people', async (c) => {
+	if (!isPrimaryPerson(c)) return c.json({ error: 'Only the primary scholar can manage contributors' }, 403);
+
+	const db = getDb();
+	const rows = await db.select().from(schema.people).orderBy(asc(schema.people.id));
+	return c.json(rows);
+});
+
+studioApi.post('/people', async (c) => {
+	if (!isPrimaryPerson(c)) return c.json({ error: 'Only the primary scholar can manage contributors' }, 403);
+
+	const parsed = newPersonSchema.safeParse(await c.req.json());
+	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
+	const input = parsed.data;
+
+	const db = getDb();
+	if (await personSlugOrEmailInUse(db, input.slug, input.email)) {
+		return c.json({ error: 'That slug or email is already in use' }, 409);
+	}
+
+	const [row] = await db
+		.insert(schema.people)
+		.values({
+			slug: input.slug,
+			displayName: input.displayName,
+			email: input.email,
+			role: input.role,
+			seat: input.seat ?? null,
+			createdAt: new Date().toISOString()
+		})
+		.returning();
+
+	return c.json(row, 201);
+});
+
+studioApi.get('/crossings', async (c) => {
+	const db = getDb();
+	const stays = await listStaysForCrossingSuggestions(db);
+	const suggestions = suggestCrossings(stays).filter((s) => s.personIds.includes(c.get('personId')));
+	const crossings = await listCrossingsForPerson(db, c.get('personId'));
+	return c.json({ suggestions, crossings });
+});
+
+const newCrossingSchema = z.object({
+	placeId: z.number().int().positive(),
+	personIds: z.array(z.number().int().positive()).min(2),
+	startsOn: z.string().min(1),
+	endsOn: z.string().min(1)
+});
+
+studioApi.post('/crossings', async (c) => {
+	const parsed = newCrossingSchema.safeParse(await c.req.json());
+	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
+	if (!parsed.data.personIds.includes(c.get('personId'))) {
+		return c.json({ error: 'You can only suggest a crossing you were part of' }, 403);
+	}
+
+	const db = getDb();
+	const crossing = await createCrossingFromSuggestion(db, parsed.data, new Date().toISOString());
+	// Suggesting it is itself an implicit yes from the person doing the
+	// suggesting - the other participant(s) still confirm separately.
+	await confirmCrossingParticipant(db, crossing.id, c.get('personId'), new Date().toISOString());
+	return c.json(crossing, 201);
+});
+
+studioApi.post('/crossings/:id/confirm', async (c) => {
+	const id = Number(c.req.param('id'));
+	if (!Number.isInteger(id)) return c.json({ error: 'Invalid id' }, 400);
+
+	const db = getDb();
+	const confirmed = await confirmCrossingParticipant(db, id, c.get('personId'), new Date().toISOString());
+	if (!confirmed) return c.json({ error: 'Not found' }, 404);
 	return c.json({ ok: true });
 });

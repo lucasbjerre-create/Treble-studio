@@ -10,6 +10,12 @@ import { resizeToWebp } from './media';
 import { timezoneFromGps } from './timezoneFromGps';
 import { correctExifDateForTimeZone, gpsTimestampToUtc } from './zonedTime';
 
+/** Surfaces the server's own { error } message (e.g. "Storage quota reached") when present, falling back to a generic one. */
+async function serverErrorMessage(res: Response, fallback: string): Promise<string> {
+	const payload = (await res.json().catch(() => null)) as { error?: unknown } | null;
+	return typeof payload?.error === 'string' ? payload.error : fallback;
+}
+
 export interface PhotoGpsHint {
 	latitude: number | null;
 	longitude: number | null;
@@ -187,7 +193,7 @@ export async function uploadPhotoToEntry(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ entryId })
 	});
-	if (!presignRes.ok) throw new Error('Could not get an upload URL');
+	if (!presignRes.ok) throw new Error(await serverErrorMessage(presignRes, 'Could not get an upload URL'));
 	const { keys, urls } = (await presignRes.json()) as {
 		keys: Record<SizeName, string>;
 		urls: Record<SizeName, string>;
@@ -226,7 +232,7 @@ export async function uploadPhotoToEntry(
 			exifJson: exif ? JSON.stringify(exif) : null
 		})
 	});
-	if (!commitRes.ok) throw new Error('Could not save the uploaded photo');
+	if (!commitRes.ok) throw new Error(await serverErrorMessage(commitRes, 'Could not save the uploaded photo'));
 	const media = (await commitRes.json()) as UploadedMedia;
 
 	return { media, gps: { latitude: gps?.latitude ?? null, longitude: gps?.longitude ?? null } };

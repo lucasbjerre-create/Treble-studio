@@ -240,3 +240,71 @@
 	font-weight: var(--weight-medium);
 	line-height: 1.3;
 }
+
+/* Crossing marker (map-theme.json markers.crossing: "pill with bars", height
+   22, max_bars 5) - one coloured bar per visible participant, a plain HTML
+   marker like the campus markers above, not a map layer - see
+   TimelineExplorer.tsx's renderCrossingMarkers. */
+.crossing-marker {
+	display: flex;
+	align-items: stretch;
+	height: 22px;
+	border-radius: 11px;
+	overflow: hidden;
+	box-shadow: var(--shadow-sm);
+	border: 2px solid var(--map-land, var(--color-bg));
+	cursor: pointer;
+}
+
+.crossing-marker-bar {
+	width: 6px;
+	height: 100%;
+}
+
+.crossing-marker:focus-visible {
+	outline: 2px solid var(--color-link);
+	outline-offset: 2px;
+}
+
+.maplibregl-popup.crossing-popup .maplibregl-popup-content {
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	box-shadow: var(--shadow-md);
+}
+
+.maplibregl-popup.crossing-popup .maplibregl-popup-tip {
+	border-top-color: var(--color-surface);
+}
+
+.crossing-popup-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	font-family: var(--font-sans);
+}
+
+.crossing-popup-entry {
+	display: flex;
+	flex-direction: column;
+	text-decoration: none;
+	color: var(--color-text);
+	padding: var(--space-1) 0;
+	border-top: var(--border-hairline);
+}
+
+.crossing-popup-entry:first-child {
+	border-top: none;
+}
+
+.crossing-popup-name {
+	font-size: var(--text-micro);
+	text-transform: uppercase;
+	color: var(--color-text-muted);
+}
+
+.crossing-popup-title {
+	font-size: var(--text-small);
+	font-weight: var(--weight-medium);
+	line-height: 1.3;
+}

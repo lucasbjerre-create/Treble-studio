@@ -52,6 +52,34 @@ export interface ExplorerPerson {
 	seat: number | null;
 }
 
+/** One visible participant's own entry within a confirmed crossing - see GET /api/crossings/:personSlug. */
+export interface CrossingEntry {
+	personId: number;
+	personSlug: string;
+	displayName: string;
+	seat: number | null;
+	slug: string;
+	title: string;
+	occurredAt: string;
+}
+
+/**
+ * A confirmed crossing visible to the current viewer, already audience- and
+ * per-person-family-filtered server-side - entries here is never the full
+ * participant list, only the ones whose own entry this viewer can actually
+ * see (src/db/queries.ts's listEntriesForCrossing). The marker's bar count
+ * follows that same list, on purpose: showing a bar for a participant with
+ * no visible entry would itself leak that they were here.
+ */
+export interface CrossingMarkerData {
+	id: number;
+	lon: number;
+	lat: number;
+	startsOn: string;
+	endsOn: string;
+	entries: CrossingEntry[];
+}
+
 interface Props {
 	lang: 'da' | 'en';
 	personSlug: string;
@@ -59,7 +87,7 @@ interface Props {
 	legs: ExplorerLeg[];
 	places: ExplorerPlace[];
 	people: Record<number, ExplorerPerson>;
-	labels: { previous: string; next: string; openMap: string; closeMap: string };
+	labels: { previous: string; next: string; openMap: string; closeMap: string; crossingMarker: string };
 }
 
 function placeCoords(places: ExplorerPlace[], placeId: number | null): [number, number] | undefined {
@@ -202,7 +230,16 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 	const seatStyleCache = useRef(new Map<number, SeatStyle>());
 	const campusMarkersRef = useRef<Marker[]>([]);
 	const entryPopupRef = useRef<Popup | null>(null);
+	const crossingMarkersRef = useRef<Marker[]>([]);
+	const crossingPopupRef = useRef<Popup | null>(null);
 	const [sheetOpen, setSheetOpen] = useState(false);
+	const [crossings, setCrossings] = useState<CrossingMarkerData[]>([]);
+	// A ref mirror so the 'load' handler (captured once, in the map-setup
+	// effect below) and renderCrossingMarkers always read the latest fetch
+	// result, not whatever `crossings` happened to be when that closure was
+	// created.
+	const crossingsRef = useRef<CrossingMarkerData[]>([]);
+	crossingsRef.current = crossings;
 
 	// Stable tie-break (same comparator shape as src/lib/timeline.ts's
 	// sortByOccurredAt) - the previous version returned 1 for equal
@@ -441,6 +478,9 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 			});
 
 			syncMapToState();
+			// In case the crossings fetch already resolved before 'load' fired -
+			// the normal case is the [crossings] effect below, once it does.
+			renderCrossingMarkers();
 		});
 
 		// Stop automatic camera movement as soon as the reader touches the map (CLAUDE.md).
@@ -462,8 +502,12 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 			darkMediaQuery.removeEventListener('change', onThemeChange);
 			for (const marker of campusMarkersRef.current) marker.remove();
 			campusMarkersRef.current = [];
+			for (const marker of crossingMarkersRef.current) marker.remove();
+			crossingMarkersRef.current = [];
 			entryPopupRef.current?.remove();
 			entryPopupRef.current = null;
+			crossingPopupRef.current?.remove();
+			crossingPopupRef.current = null;
 			map.remove();
 			mapRef.current = null;
 			delete (window as unknown as { __explorerMap?: MapLibreMap }).__explorerMap;
@@ -618,6 +662,125 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 
 		return root;
 	}
+
+	/** Each visible participant's own entry, linked to their own person's page - a crossing can involve someone who isn't this page's own person. */
+	function buildCrossingPopupContent(crossing: CrossingMarkerData): HTMLElement {
+		const root = document.createElement('div');
+		root.className = 'crossing-popup-card';
+		for (const entry of crossing.entries) {
+			const link = document.createElement('a');
+			link.className = 'crossing-popup-entry';
+			link.href = `/${lang}/${entry.personSlug}/${entry.slug}`;
+			const name = document.createElement('span');
+			name.className = 'crossing-popup-name';
+			name.textContent = entry.displayName;
+			const title = document.createElement('span');
+			title.className = 'crossing-popup-title';
+			title.textContent = entry.title;
+			link.appendChild(name);
+			link.appendChild(title);
+			root.appendChild(link);
+		}
+		return root;
+	}
+
+	function showCrossingPopup(crossing: CrossingMarkerData, map: MapLibreMap) {
+		if (!crossingPopupRef.current) {
+			crossingPopupRef.current = new Popup({
+				closeButton: true,
+				closeOnClick: true,
+				anchor: 'bottom',
+				offset: ENTRY_POPUP_OFFSET,
+				className: 'crossing-popup',
+				maxWidth: `${ENTRY_POPUP_MAX_WIDTH}px`
+			});
+		}
+		crossingPopupRef.current.setLngLat([crossing.lon, crossing.lat]).setDOMContent(buildCrossingPopupContent(crossing)).addTo(map);
+	}
+
+	/**
+	 * Rebuilds every crossing marker from scratch from crossingsRef.current -
+	 * cheap (there are only ever a handful of crossings), and simpler than
+	 * diffing against whatever markers already exist. Individual
+	 * maplibregl.Marker elements, not a GeoJSON layer, since map-theme.json's
+	 * "pill with bars" shape is a multi-coloured composite (one bar per
+	 * visible participant) that's awkward to express as a single-tint
+	 * MapLibre icon - the same reasoning the campus markers already use for a
+	 * custom DOM shape, just for a data-driven position instead of a fixed
+	 * one (a Marker's position updates via setLngLat either way).
+	 */
+	function renderCrossingMarkers() {
+		const map = mapRef.current;
+		if (!map) return;
+
+		for (const marker of crossingMarkersRef.current) marker.remove();
+		crossingMarkersRef.current = [];
+
+		for (const crossing of crossingsRef.current) {
+			const el = document.createElement('div');
+			el.className = 'crossing-marker';
+			el.setAttribute('role', 'button');
+			el.setAttribute('aria-label', labels.crossingMarker);
+			el.tabIndex = 0;
+
+			// Capped at 5 bars (map-theme.json's max_bars) - one per distinct
+			// visible participant, deduped since the same person could in
+			// principle have more than one entry in the window.
+			const seenPersonIds = new Set<number>();
+			for (const entry of crossing.entries) {
+				if (seenPersonIds.has(entry.personId) || seenPersonIds.size >= 5) continue;
+				seenPersonIds.add(entry.personId);
+				const bar = document.createElement('span');
+				bar.className = 'crossing-marker-bar';
+				const style = entry.seat !== null ? readSeatStyle(entry.seat, seatStyleCache.current) : undefined;
+				bar.style.backgroundColor = style?.color ?? cssVar('--map-dimmed', '#a9a69f');
+				el.appendChild(bar);
+			}
+
+			// stopPropagation: this marker can sit at the same coordinate as an
+			// entry marker underneath it (same known tradeoff as the campus
+			// markers - see their own comment above) - without this, a click
+			// here would also reach the map's 'click' handler on 'marker-point'.
+			const open = (e: Event) => {
+				e.stopPropagation();
+				showCrossingPopup(crossing, map);
+			};
+			el.addEventListener('click', open);
+			el.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					open(e);
+				}
+			});
+
+			const marker = new Marker({ element: el, anchor: 'bottom' }).setLngLat([crossing.lon, crossing.lat]).addTo(map);
+			crossingMarkersRef.current.push(marker);
+		}
+	}
+
+	// Fetched once per person/language - a small, rare list (there are only
+	// ever a handful of crossings), so a plain client-side fetch rather than
+	// threading it through explore.astro's own props.
+	useEffect(() => {
+		let cancelled = false;
+		(async () => {
+			try {
+				const res = await fetch(`/api/crossings/${personSlug}?lang=${lang}`);
+				const data = (res.ok ? await res.json() : { crossings: [] }) as { crossings?: CrossingMarkerData[] };
+				if (!cancelled) setCrossings(data.crossings ?? []);
+			} catch {
+				if (!cancelled) setCrossings([]);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [personSlug, lang]);
+
+	useEffect(() => {
+		renderCrossingMarkers();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [crossings]);
 
 	useEffect(() => {
 		// Keeps the URL in sync on every change, including the initial mount -

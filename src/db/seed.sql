@@ -197,3 +197,17 @@ INSERT OR IGNORE INTO media (
 		'Same overlook, different weekend group.', 'A mountain overlook near Asheville, Anna''s photo.',
 		NULL, NULL, 0
 	);
+
+-- Milestone 6: a confirmed crossing for the same Lucas/Anna Asheville
+-- overlap used above, so there's something real to see on the map and in
+-- /studio/crossings without having to suggest/confirm one by hand first.
+-- Lucas's own entry for this window is family-only (see entries above) and
+-- Anna's is public - deliberately asymmetric, so the per-person-family
+-- visibility fix (src/db/queries.ts) has something real to exercise in dev,
+-- not just in the privacy test fixture.
+INSERT OR IGNORE INTO crossings (id, place_id, starts_on, ends_on, created_at) VALUES
+	(1, 3, '2026-09-19', '2026-09-20', '2026-09-20T12:00:00.000Z');
+
+INSERT OR IGNORE INTO crossing_participants (crossing_id, person_id, confirmed, confirmed_at) VALUES
+	(1, 1, 1, '2026-09-20T12:00:00.000Z'),
+	(1, 2, 1, '2026-09-20T12:00:00.000Z');
