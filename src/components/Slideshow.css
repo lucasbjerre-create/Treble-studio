@@ -23,6 +23,28 @@
 	justify-content: center;
 }
 
+/* From tablet width up the viewer is exactly one window tall, so the photo is
+   fitted into what is left between the top bar and the controls. With only a
+   min-height the stage had no height of its own to fit into: a portrait photo
+   was laid out at full width and its natural height (1184 x 1579 in a 1280 x
+   800 window), with the controls far below the fold. Phones keep the
+   scrolling layout: the settings panel wraps to several rows there, and
+   squeezing the photo into the remainder would make it too small. The floor
+   keeps a very short window usable (the page scrolls instead). */
+@media (min-width: 48rem) {
+	.slideshow {
+		height: calc(100vh - var(--nav-height, 0px));
+		height: calc(100dvh - var(--nav-height, 0px));
+		min-height: 30rem;
+	}
+
+	.slideshow:fullscreen,
+	.slideshow[data-fullscreen] {
+		height: 100vh;
+		height: 100dvh;
+	}
+}
+
 .slideshow-topbar {
 	display: flex;
 	align-items: center;
@@ -35,32 +57,36 @@
 	gap: var(--space-2);
 }
 
+/* minmax(0, 1fr), not a bare 1fr, on every track: a bare 1fr has an automatic
+   minimum of its content's own size, so a large photo could still push its
+   row or column wider or taller than the stage. */
 .slideshow-stage {
 	position: relative;
 	flex: 1;
 	display: grid;
-	grid-template-rows: 1fr;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr);
 	gap: var(--space-2);
 	min-height: 0;
 }
 
 .slideshow-stage:has(.slideshow-slot--duo) {
-	grid-template-columns: repeat(2, 1fr);
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .slideshow-stage:has(.slideshow-slot--trio) {
-	grid-template-columns: repeat(3, 1fr);
+	grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .slideshow-stage:has(.slideshow-slot--quad) {
-	grid-template-columns: repeat(2, 1fr);
-	grid-template-rows: repeat(2, 1fr);
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-template-rows: repeat(2, minmax(0, 1fr));
 }
 
 @media (max-width: 47.9375rem) {
 	.slideshow-stage:has(.slideshow-slot--trio),
 	.slideshow-stage:has(.slideshow-slot--quad) {
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
 
@@ -318,7 +344,7 @@
 }
 
 .slideshow-field select {
-	min-height: 2.25rem;
+	min-height: var(--touch-min);
 	padding: 0 var(--space-2);
 	border: 1px solid rgb(255 255 255 / 0.16);
 	border-radius: var(--radius-sm);
@@ -329,7 +355,8 @@
 }
 
 .slideshow-toggle-button {
-	min-height: 2.25rem;
+	min-height: var(--touch-min);
+	white-space: nowrap;
 	padding: 0 var(--space-3);
 	border: 1px solid rgb(255 255 255 / 0.16);
 	border-radius: var(--radius-pill);

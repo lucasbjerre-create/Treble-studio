@@ -75,12 +75,41 @@ test('clicking a marker revealed by zooming out navigates, then the camera zooms
 
 	// The automatic camera only shows the active entry now, so seeing a
 	// different entry's marker to click it means zooming out by hand first -
-	// exactly what a reader exploring the map themselves would do.
+	// exactly what a reader exploring the map themselves would do. Fitted to
+	// the two entries' places (Chapel Hill, Copenhagen) rather than a fixed
+	// centre and zoom: on desktop the map sits in a narrower column beside
+	// the journal, and a fixed zoom 2 left Copenhagen outside its right edge.
 	await page.evaluate(() => {
-		(window as unknown as { __explorerMap: { jumpTo(opts: { center: [number, number]; zoom: number }): void } }).__explorerMap.jumpTo({
-			center: [-33, 45],
-			zoom: 2
-		});
+		(
+			window as unknown as {
+				__explorerMap: {
+					fitBounds(bounds: [[number, number], [number, number]], opts: { padding: number; animate: boolean }): void;
+				};
+			}
+		).__explorerMap.fitBounds(
+			[
+				[-79.05, 35.9],
+				[12.5683, 55.6761]
+			],
+			{ padding: 60, animate: false }
+		);
+	});
+
+	// The click only lands on something once the marker has been drawn at the
+	// new zoom. The GeoJSON source re-clusters off the main thread, so straight
+	// after the camera jump there can be a moment with nothing under the
+	// cursor - seen as an occasional failure when the suite runs in parallel.
+	await page.waitForFunction(() => {
+		const map = (
+			window as unknown as {
+				__explorerMap: {
+					project(c: [number, number]): { x: number; y: number };
+					queryRenderedFeatures(point: [number, number], opts: { layers: string[] }): unknown[];
+				};
+			}
+		).__explorerMap;
+		const p = map.project([12.5683, 55.6761]);
+		return map.queryRenderedFeatures([p.x, p.y], { layers: ['marker-point'] }).length > 0;
 	});
 
 	const point = await page.evaluate(() => {

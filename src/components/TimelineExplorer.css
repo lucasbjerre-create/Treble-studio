@@ -1,7 +1,21 @@
 .timeline-explorer {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-4);
+	/* One step wider than the slider's date stamp is tall (it hangs 1.25rem
+	   above the track), so the stamp sits in this gap instead of on top of
+	   whatever is above the slider. */
+	gap: var(--space-5);
+	min-width: 0;
+}
+
+/* Wraps the bar, the map and the slider (TimelineExplorer.tsx). Invisible to
+   layout everywhere except the phone, where it becomes the bottom sheet. */
+.map-sheet {
+	display: contents;
+}
+
+.map-sheet-spacer {
+	display: none;
 }
 
 .map-panel {
@@ -22,12 +36,50 @@
 	display: none;
 }
 
+/* Desktop: the map stays put beside the journal while the journal scrolls
+   (spec section 6: "sticky map on roughly 40 percent of the screen, scrolling
+   journal beside it"). It used to sit above the list in normal flow, so
+   scrolling the list - the thing that drives the map - scrolled the map out
+   of view. The two-column grid itself lives in explore.astro; this island is
+   its second column (astro-island is display: contents, so this element is
+   the grid item). */
+@media (min-width: 1024px) {
+	.timeline-explorer {
+		grid-column: 2;
+		grid-row: 1;
+		align-self: start;
+		position: sticky;
+		top: calc(var(--nav-height) + var(--space-6));
+	}
+
+	/* Map plus slider fit in one window even before any scrolling, when the
+	   page heading still sits above them: full height minus the header, the
+	   heading block, the slider row and a margin. */
+	.map-panel {
+		height: calc(100vh - var(--nav-height) - 15rem);
+		min-height: 20rem;
+		max-height: 40rem;
+	}
+}
+
 /* Phone layout: story first (spec section 6). The map collapses into a slim
-   sticky bar; tapping it opens a bottom sheet instead of the map always
-   taking the top 50vh of the screen. cooperativeGestures on the Map
-   constructor (TimelineExplorer.tsx) keeps a one-finger swipe scrolling the
-   page even while the sheet is open. */
+   bar; tapping it opens a bottom sheet instead of the map always taking the
+   top 50vh of the screen.
+
+   The sheet is the whole .map-sheet wrapper, not just the map: bar on top
+   (it carries the Close action), map in the middle, slider at the bottom.
+   Before, only the map was fixed to the bottom of the screen, so it covered
+   half of its own Close bar and all of the slider - the map could not be
+   stepped through while it was open. */
 @media (max-width: 767px) {
+	.map-sheet {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-5);
+	}
+
+	/* Collapsed: out of the flow and zero-height, exactly as before, so the
+	   map still initialises against a real (if empty) box. */
 	.map-panel {
 		position: fixed;
 		left: 0;
@@ -36,13 +88,53 @@
 		height: 0;
 		min-height: 0;
 		overflow: hidden;
-		z-index: var(--z-sheet);
-		box-shadow: var(--shadow-lg);
-		transition: height var(--duration-base) var(--ease-standard);
 	}
 
-	.map-panel--open {
+	.timeline-explorer--sheet-open .map-sheet {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
 		height: 70vh;
+		height: 70dvh;
+		z-index: var(--z-sheet);
+		gap: var(--space-3);
+		padding: var(--space-3) var(--grid-margin) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+		background: var(--color-bg);
+		border-top: var(--border-hairline);
+		box-shadow: var(--shadow-lg);
+		animation: map-sheet-in var(--duration-base) var(--ease-standard);
+	}
+
+	/* Takes whatever height the bar and the slider leave, edge to edge. */
+	.timeline-explorer--sheet-open .map-panel {
+		position: relative;
+		inset: auto;
+		flex: 1 1 auto;
+		width: auto;
+		height: auto;
+		margin: 0 calc(-1 * var(--grid-margin));
+	}
+
+	.timeline-explorer--sheet-open .map-container {
+		position: absolute;
+		inset: 0;
+		height: auto;
+	}
+
+	/* Room for the date stamp that hangs above the slider track, so it never
+	   sits on the map's bottom edge. */
+	.timeline-explorer--sheet-open .slider-controls {
+		margin-top: var(--space-2);
+	}
+
+	/* The bar and the slider have left the page flow for the sheet; this
+	   holds their place (the 44px bar, the gap, and the slider row, which
+	   measures 4px taller than a bare touch target) so the journal
+	   underneath does not jump. */
+	.timeline-explorer--sheet-open .map-sheet-spacer {
+		display: block;
+		height: calc(var(--touch-min) * 2 + var(--space-5) + var(--space-1));
 	}
 
 	.map-sheet-toggle {
@@ -73,10 +165,27 @@
 		color: var(--color-text-muted);
 	}
 
+	.sheet-toggle-date {
+		flex-shrink: 0;
+		white-space: nowrap;
+	}
+
 	.sheet-toggle-action {
 		color: var(--color-link);
 		font-weight: var(--weight-semibold);
 		flex-shrink: 0;
+		white-space: nowrap;
+	}
+}
+
+/* --duration-base is 0ms under prefers-reduced-motion (tokens.css), so the
+   sheet simply appears for readers who asked for no motion. */
+@keyframes map-sheet-in {
+	from {
+		transform: translateY(100%);
+	}
+	to {
+		transform: translateY(0);
 	}
 }
 
@@ -126,6 +235,10 @@
 	min-height: var(--touch-min);
 	min-width: var(--touch-min);
 	padding: 0 var(--space-3);
+	/* Buttons do not inherit size from their parent by default; without this
+	   they fell back to the browser's own 13.33px. One line always. */
+	font-size: inherit;
+	white-space: nowrap;
 	background: var(--color-surface);
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-xs);
@@ -227,18 +340,30 @@
 
 /* Height follows the image's own aspect-ratio (set inline from the media
    row's width/height in buildEntryPopupContent) instead of a fixed crop -
-   every photo keeps its real shape on the map. */
+   every photo keeps its real shape on the map, up to the max-height that
+   same function sets inline so the card always fits inside the map. Only a
+   photo taller than that cap is cropped, and object-fit: cover is what makes
+   that a crop rather than a squash. */
 .entry-popup-card img {
 	display: block;
 	width: 100%;
 	height: auto;
+	object-fit: cover;
 }
 
+/* Two lines at most: the camera offset and the photo's height cap both
+   budget for a title of that size, so a very long one is cut off here
+   rather than pushing the card past the edge of the map. */
 .entry-popup-title {
-	padding: var(--space-2) var(--space-3);
+	margin: var(--space-2) var(--space-3);
 	font-size: var(--text-small);
 	font-weight: var(--weight-medium);
 	line-height: 1.3;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	overflow: hidden;
 }
 
 /* Crossing marker (map-theme.json markers.crossing: "pill with bars", height

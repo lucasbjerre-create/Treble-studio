@@ -24,10 +24,31 @@ let workerUrlSet = false;
 // on the popup rather than on the marker underneath it.
 const ENTRY_POPUP_OFFSET = 18;
 const ENTRY_POPUP_MAX_WIDTH = 220;
+// The popup's photo keeps its real shape up to 3:4 portrait at the popup's
+// own width (the tallest a phone photo normally is). Anything taller (a 9:16
+// screenshot or video frame) is cropped to this, since an uncapped one made
+// the card taller than the map itself and got clipped top and bottom.
+const ENTRY_POPUP_MAX_IMAGE_HEIGHT = 296;
+// What the card needs besides its photo: tip, offset, title and a small
+// margin - what's left of the map's height is the most the photo may take.
+// The title is two lines of --text-small (14px at 1.3) plus its own margins.
+const ENTRY_POPUP_CHROME = 116;
+const ENTRY_POPUP_MIN_IMAGE_HEIGHT = 96;
+
+// Shared between the markers source's own clusterRadius and the cluster click
+// handler, which finds the entries behind a cluster bubble by screen distance.
+const CLUSTER_RADIUS = 40;
+// A cluster's bubble sits at its members' centroid and is 14px in radius, so
+// a click on it can be up to radius + bubble away from any one member.
+const CLUSTER_HIT_RADIUS = CLUSTER_RADIUS + 16;
 
 export interface ExplorerEntry extends TimelineEntry {
 	slug: string;
 	title: string;
+	/** The entry's date in its own timezone, already formatted for this page's language (src/lib/entryDate.ts), e.g. "30 Oct 2026". Formatted on the server so the phone bar, the slider and the journal cards can never disagree about which day it was. */
+	dateLabel: string;
+	/** The same date without the year, for the slider's own stamp, e.g. "30 Oct". */
+	dayLabel: string;
 	/** Already-resolved, audience-checked thumbnail URL, or null for a text-only entry - see explore.astro. */
 	thumb: string | null;
 	/** The thumb's real pixel size, so the map popup can reserve its original aspect ratio instead of cropping to a fixed one. Null when thumb is null or the media row predates width/height capture. */
@@ -128,6 +149,19 @@ function measurePopupContentHeight(content: HTMLElement): number {
 	const height = probe.offsetHeight;
 	document.body.removeChild(probe);
 	return height;
+}
+
+/**
+ * The tallest the popup's photo may be on this map right now, so the whole
+ * card (photo, title, tip) always fits inside the map instead of being
+ * clipped by its edge - the map is much shorter in the phone sheet than on
+ * desktop. A collapsed phone sheet has no height at all yet: that case uses
+ * the normal cap, and the re-sync that runs when the sheet opens corrects it.
+ */
+function popupImageMaxHeight(map: MapLibreMap): number {
+	const mapHeight = map.getContainer().clientHeight;
+	if (mapHeight === 0) return ENTRY_POPUP_MAX_IMAGE_HEIGHT;
+	return Math.max(ENTRY_POPUP_MIN_IMAGE_HEIGHT, Math.min(ENTRY_POPUP_MAX_IMAGE_HEIGHT, mapHeight - ENTRY_POPUP_CHROME));
 }
 
 interface SeatStyle {
@@ -249,6 +283,11 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 	const sortedEntries = [...entries].sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : a.occurredAt > b.occurredAt ? 1 : 0));
 	const initialDate = readDateFromUrl() ?? sortedEntries.at(-1)?.occurredAt ?? '';
 	const [date, setDate] = useState(initialDate);
+	// A ref mirror for the same reason as crossingsRef above: the cluster click
+	// handler is registered once, inside the map's 'load' handler, and needs
+	// the date showing now, not the one from the render it was created in.
+	const dateRef = useRef(date);
+	dateRef.current = date;
 
 	const state = computeTimelineState(entries, legs, date);
 
@@ -315,8 +354,14 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 				data: { type: 'FeatureCollection', features: [] },
 				cluster: true,
 				clusterMaxZoom: 8,
-				clusterRadius: 40
+				clusterRadius: CLUSTER_RADIUS
 			});
+			// The active entry on its own, never clustered. Entries at one place
+			// share the exact same (rounded) coordinates, so a semester in one
+			// city is a single cluster bubble at every zoom the camera uses - and
+			// without this the entry the slider is on had no marker of its own at
+			// all, only an anonymous bubble under its popup.
+			map.addSource('active-marker', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 			map.addSource('legs', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
 			applyMapTheme(map);
@@ -394,7 +439,17 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 				type: 'symbol',
 				source: 'markers',
 				filter: ['has', 'point_count'],
-				layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 12 },
+				// text-font is not optional here: without it MapLibre asks the tile
+				// provider for its own default stack (Open Sans / Arial Unicode),
+				// which OpenFreeMap doesn't host - a 404 on every load and a
+				// bubble with no number in it. Same face as marker-initials below.
+				layout: {
+					'text-field': ['get', 'point_count_abbreviated'],
+					'text-size': 12,
+					'text-font': ['Noto Sans Bold'],
+					'text-allow-overlap': true,
+					'text-ignore-placement': true
+				},
 				paint: { 'text-color': land }
 			});
 			// Scholar marker: coloured circle (map-theme.json markers.scholar,
@@ -425,6 +480,32 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 				},
 				paint: { 'text-color': ['get', 'textColor'] }
 			});
+			// Drawn last, so the active entry's marker sits on top of whatever
+			// cluster bubble it would otherwise have been folded into.
+			map.addLayer({
+				id: 'active-point',
+				type: 'circle',
+				source: 'active-marker',
+				paint: {
+					'circle-color': ['get', 'color'],
+					'circle-radius': 14,
+					'circle-stroke-width': 2,
+					'circle-stroke-color': land
+				}
+			});
+			map.addLayer({
+				id: 'active-initials',
+				type: 'symbol',
+				source: 'active-marker',
+				layout: {
+					'text-field': ['get', 'initials'],
+					'text-size': 11,
+					'text-font': ['Noto Sans Bold'],
+					'text-allow-overlap': true,
+					'text-ignore-placement': true
+				},
+				paint: { 'text-color': ['get', 'textColor'] }
+			});
 
 			map.on('click', 'marker-point', (e) => {
 				const entryId = e.features?.[0]?.properties?.entryId;
@@ -435,6 +516,31 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 				map.getCanvas().style.cursor = 'pointer';
 			});
 			map.on('mouseleave', 'marker-point', () => {
+				map.getCanvas().style.cursor = '';
+			});
+
+			// A cluster used to be a dead spot: no handler at all. Zooming in
+			// (the usual cluster click) can't help here, because entries at one
+			// place share identical coordinates and never separate. So a click
+			// steps back through the entries behind the bubble instead: to the
+			// latest one before the date showing now, which is always one of the
+			// entries the bubble is counting. Found by screen distance from this
+			// component's own data rather than the source's cluster-leaves call,
+			// so it depends on nothing but map.project().
+			map.on('click', 'clusters', (e) => {
+				const behindBubble = sortedEntries.filter((entry) => {
+					const coords = placeCoords(places, entry.placeId);
+					if (!coords) return false;
+					const point = map.project(coords);
+					return Math.hypot(point.x - e.point.x, point.y - e.point.y) <= CLUSTER_HIT_RADIUS;
+				});
+				const target = behindBubble.filter((entry) => entry.occurredAt < dateRef.current).at(-1) ?? behindBubble.at(-1);
+				if (target) navigateTo(target.occurredAt, { scrollJournal: true });
+			});
+			map.on('mouseenter', 'clusters', () => {
+				map.getCanvas().style.cursor = 'pointer';
+			});
+			map.on('mouseleave', 'clusters', () => {
 				map.getCanvas().style.cursor = '';
 			});
 
@@ -468,9 +574,16 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 			// down at it) rather than MapLibre's automatic placement: syncMapToState
 			// below shifts the camera to keep this popup centered, which only works
 			// if the popup always lands on the same side of the point.
+			// focusAfterOpen off: MapLibre's default moves keyboard focus into a
+			// popup every time it's added, and this one is re-added on every date
+			// change. That pulled focus off the slider after a single arrow
+			// press, so the next press went nowhere - the timeline's keyboard
+			// alternative (map-and-timeline.md) stopped after one step. The card
+			// is still a normal link in the tab order.
 			entryPopupRef.current = new Popup({
 				closeButton: false,
 				closeOnClick: false,
+				focusAfterOpen: false,
 				anchor: 'bottom',
 				offset: ENTRY_POPUP_OFFSET,
 				className: 'entry-popup',
@@ -555,6 +668,10 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 			type: 'FeatureCollection',
 			features: markerFeatures
 		});
+		(map.getSource('active-marker') as GeoJSONSource | undefined)?.setData({
+			type: 'FeatureCollection',
+			features: markerFeatures.filter((feature) => feature.properties.isActive)
+		});
 
 		const legFeatures = state.routeProgress
 			.filter((progress) => progress.status !== 'future')
@@ -595,7 +712,7 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 		const activeCoords = placeCoords(places, activeEntry?.placeId ?? null);
 		// Built up front (not inside the popup block below) because the camera
 		// move needs its height before it can decide where to point the marker.
-		const popupContent = activeEntry ? buildEntryPopupContent(activeEntry) : null;
+		const popupContent = activeEntry ? buildEntryPopupContent(activeEntry, popupImageMaxHeight(map)) : null;
 
 		if (activeCoords) {
 			const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -640,7 +757,7 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 	}
 
 	/** The active entry's photo + title, following the marker - see entryPopupRef's setup above. */
-	function buildEntryPopupContent(entry: ExplorerEntry): HTMLElement {
+	function buildEntryPopupContent(entry: ExplorerEntry, maxImageHeight: number): HTMLElement {
 		const root = document.createElement('a');
 		root.className = 'entry-popup-card';
 		root.href = `/${lang}/${personSlug}/${entry.slug}`;
@@ -649,9 +766,14 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 			const img = document.createElement('img');
 			img.src = entry.thumb;
 			img.alt = '';
-			if (entry.thumbWidth && entry.thumbHeight) {
-				img.style.aspectRatio = `${entry.thumbWidth} / ${entry.thumbHeight}`;
-			}
+			// A media row from before width/height were captured has no known
+			// shape. Without one the card measured as title-only (the image has
+			// no height until it loads), so the camera offset was wrong and the
+			// photo then loaded outside the map. A fixed 4:3 box keeps it
+			// measurable; object-fit: cover (TimelineExplorer.css) fills it.
+			img.style.aspectRatio =
+				entry.thumbWidth && entry.thumbHeight ? `${entry.thumbWidth} / ${entry.thumbHeight}` : '4 / 3';
+			img.style.maxHeight = `${maxImageHeight}px`;
 			root.appendChild(img);
 		}
 
@@ -793,13 +915,18 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 	// Resize the map whenever the mobile bottom sheet opens/closes - the
 	// canvas is sized by its container (0 while the sheet is collapsed), and
 	// MapLibre needs an explicit nudge, both right away and once more after
-	// the CSS height transition (--duration-base) actually finishes.
+	// the sheet's own slide-in (--duration-base) has finished. Then re-sync:
+	// the popup's photo is capped to the map's height (popupImageMaxHeight),
+	// which was unknown while the sheet was closed, so the camera offset that
+	// centres the popup has to be worked out again against the real size.
 	useEffect(() => {
 		const map = mapRef.current;
 		if (!map) return;
 		map.resize();
+		syncMapToState();
 		const timeout = setTimeout(() => map.resize(), 260);
 		return () => clearTimeout(timeout);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [sheetOpen]);
 
 	// Scroll-sync: the journal cards are server-rendered Astro markup sitting
@@ -857,72 +984,83 @@ export default function TimelineExplorer({ lang, personSlug, entries, legs, plac
 
 	const activeIndex = sortedEntries.findIndex((e) => e.id === state.activeEntries[0]?.id);
 	const activePlace = places.find((p) => p.id === state.activeEntries[0]?.placeId);
-
-	// "Week 9 · 12 Oct" territory (spec section 6's slider labels), not a full
-	// year/weekday - this is a quick stamp next to the thumb, read alongside
-	// the place name already shown in the mobile sheet toggle and the journal
-	// card beside it.
-	const tickDateFormatter = new Intl.DateTimeFormat(lang === 'da' ? 'da-DK' : 'en-US', { day: 'numeric', month: 'short' });
+	// Every date on this screen comes from the active entry's own server-made
+	// labels (explore.astro, src/lib/entryDate.ts): the entry's own timezone,
+	// one format. The phone bar used to print a UTC slice of the instant while
+	// the slider stamp formatted it in the reader's own timezone, so one entry
+	// could read "2026-10-31" and "Oct 30" at the same time.
+	const activeSliderEntry = activeIndex >= 0 ? sortedEntries[activeIndex] : undefined;
 	const sliderMax = Math.max(sortedEntries.length - 1, 0);
 	const tickPercent = (index: number) => (sliderMax === 0 ? 0 : (index / sliderMax) * 100);
 
 	return (
-		<div className="timeline-explorer">
-			<div className={`map-panel${sheetOpen ? ' map-panel--open' : ''}`}>
-				<div ref={containerRef} className="map-container" role="application" aria-label="Route map" />
-			</div>
-			<button
-				type="button"
-				className="map-sheet-toggle"
-				aria-expanded={sheetOpen}
-				onClick={() => setSheetOpen((open) => !open)}
-			>
-				<span className="sheet-toggle-place">{activePlace?.label ?? ''}</span>
-				<span className="sheet-toggle-date t-data">{date.slice(0, 10)}</span>
-				<span className="sheet-toggle-action">{sheetOpen ? labels.closeMap : labels.openMap}</span>
-			</button>
-			<div className="slider-controls">
+		<div className={`timeline-explorer${sheetOpen ? ' timeline-explorer--sheet-open' : ''}`}>
+			{/* One wrapper around the bar, the map and the slider. On desktop it
+			    is display: contents and changes nothing. On a phone it is what
+			    becomes the bottom sheet, so the bar (with its Close action) and
+			    the slider travel with the map instead of ending up underneath
+			    it - see TimelineExplorer.css. */}
+			<div className="map-sheet">
 				<button
 					type="button"
-					onClick={() => navigateTo(adjacentEntryDate(entries, date, 'previous'))}
-					disabled={activeIndex <= 0}
+					className="map-sheet-toggle"
+					aria-expanded={sheetOpen}
+					onClick={() => setSheetOpen((open) => !open)}
 				>
-					&larr; {labels.previous}
+					<span className="sheet-toggle-place">{activePlace?.label ?? ''}</span>
+					<span className="sheet-toggle-date t-data">{activeSliderEntry?.dateLabel ?? ''}</span>
+					<span className="sheet-toggle-action">{sheetOpen ? labels.closeMap : labels.openMap}</span>
 				</button>
-				<div className="slider-track">
-					<input
-						type="range"
-						min={0}
-						max={sliderMax}
-						value={Math.max(activeIndex, 0)}
-						onChange={(e) => navigateTo(sortedEntries[Number(e.target.value)]?.occurredAt)}
-						onKeyDown={handleKeyDown}
-						aria-label="Timeline position"
-						aria-valuetext={activeIndex >= 0 ? tickDateFormatter.format(new Date(sortedEntries[activeIndex].occurredAt)) : undefined}
-					/>
-					<div className="slider-ticks" aria-hidden="true">
-						{sortedEntries.map((entry, i) => (
-							<span
-								key={entry.id}
-								className={i === activeIndex ? 'slider-tick slider-tick--active' : 'slider-tick'}
-								style={{ left: `${tickPercent(i)}%` }}
-							/>
-						))}
-					</div>
-					{activeIndex >= 0 && (
-						<div className="slider-date-stamp t-data" aria-hidden="true" style={{ left: `${tickPercent(activeIndex)}%` }}>
-							{tickDateFormatter.format(new Date(sortedEntries[activeIndex].occurredAt))}
-						</div>
-					)}
+				<div className={`map-panel${sheetOpen ? ' map-panel--open' : ''}`}>
+					<div ref={containerRef} className="map-container" role="application" aria-label="Route map" />
 				</div>
-				<button
-					type="button"
-					onClick={() => navigateTo(adjacentEntryDate(entries, date, 'next'))}
-					disabled={activeIndex >= sortedEntries.length - 1}
-				>
-					{labels.next} &rarr;
-				</button>
+				<div className="slider-controls">
+					<button
+						type="button"
+						onClick={() => navigateTo(adjacentEntryDate(entries, date, 'previous'))}
+						disabled={activeIndex <= 0}
+					>
+						&larr; {labels.previous}
+					</button>
+					<div className="slider-track">
+						<input
+							type="range"
+							min={0}
+							max={sliderMax}
+							value={Math.max(activeIndex, 0)}
+							onChange={(e) => navigateTo(sortedEntries[Number(e.target.value)]?.occurredAt)}
+							onKeyDown={handleKeyDown}
+							aria-label="Timeline position"
+							aria-valuetext={activeSliderEntry?.dateLabel}
+						/>
+						<div className="slider-ticks" aria-hidden="true">
+							{sortedEntries.map((entry, i) => (
+								<span
+									key={entry.id}
+									className={i === activeIndex ? 'slider-tick slider-tick--active' : 'slider-tick'}
+									style={{ left: `${tickPercent(i)}%` }}
+								/>
+							))}
+						</div>
+						{activeSliderEntry && (
+							<div className="slider-date-stamp t-data" aria-hidden="true" style={{ left: `${tickPercent(activeIndex)}%` }}>
+								{activeSliderEntry.dayLabel}
+							</div>
+						)}
+					</div>
+					<button
+						type="button"
+						onClick={() => navigateTo(adjacentEntryDate(entries, date, 'next'))}
+						disabled={activeIndex >= sortedEntries.length - 1}
+					>
+						{labels.next} &rarr;
+					</button>
+				</div>
 			</div>
+			{/* Holds the bar's and slider's place in the page while they are
+			    out of the flow inside the open phone sheet, so nothing below
+			    jumps up. Not displayed in any other state. */}
+			<div className="map-sheet-spacer" aria-hidden="true" />
 		</div>
 	);
 }
