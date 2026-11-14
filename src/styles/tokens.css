@@ -109,8 +109,10 @@
 	--text-body-lg: 1.1875rem;
 	--text-body: 1.0625rem;
 	--text-ui: 0.9375rem;
-	--text-small: 0.8125rem;
-	--text-micro: 0.75rem;
+	/* One step up from the kit's 0.8125rem and 0.75rem (docs/brand/tokens.css):
+	   12px and 13px text was too small to read comfortably on a phone. */
+	--text-small: 0.875rem;
+	--text-micro: 0.8125rem;
 
 	--leading-display: 1.02;
 	--leading-h1: 1.08;
@@ -420,6 +422,19 @@ a {
 }
 a:hover {
 	color: var(--color-link-hover);
+}
+/* Form controls do not inherit the page font on their own, so without this
+   they fall back to the browser's default face. Family only: `font: inherit`
+   would also change every control's size. */
+button,
+input,
+select,
+textarea {
+	font-family: inherit;
+}
+/* Sliders take the same colour as links, the site's one interactive colour. */
+input[type='range'] {
+	accent-color: var(--color-link);
 }
 :focus-visible {
 	outline: none;

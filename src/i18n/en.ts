@@ -38,6 +38,14 @@ export interface Dictionary {
 	common: {
 		noEntries: string;
 	};
+	// src/pages/404.astro - shown for any address that has no page, in the
+	// language of the address's first path segment.
+	notFound: {
+		title: string;
+		body: string;
+		home: string;
+		journal: string;
+	};
 	languageToggle: {
 		da: string;
 		en: string;
@@ -142,6 +150,12 @@ export const en: Dictionary = {
 	},
 	common: {
 		noEntries: 'Nothing here yet.'
+	},
+	notFound: {
+		title: 'Page not found',
+		body: 'There is no page at this address.',
+		home: 'Go to the front page',
+		journal: 'Read the journal'
 	},
 	languageToggle: {
 		da: 'Dansk',

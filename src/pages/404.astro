@@ -1,0 +1,86 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { t, type Locale } from '../i18n/t';
+
+// Reached two ways: Astro serves this page for any address no route matches,
+// and the pages under [lang]/ rewrite here (Astro.rewrite('/404')) when a
+// language, person or entry does not exist. Both answer with status 404.
+//
+// Rendered on demand, never prerendered: the language depends on the address
+// that was asked for, and Astro refuses a rewrite from an on-demand page to
+// a prerendered one.
+export const prerender = false;
+
+// After a rewrite Astro.url is /404, so the language comes from
+// originPathname, the address the visitor actually asked for.
+const requestedPath = Astro.originPathname ?? Astro.url.pathname;
+const lang: Locale = requestedPath.split('/')[1] === 'da' ? 'da' : 'en';
+const dict = t(lang);
+
+// linkPreview={false} below: a private entry answers with this same page, and
+// tests/e2e/privacy.spec.ts checks that such an address carries no og: tags.
+---
+
+<BaseLayout lang={lang} title={`${dict.notFound.title} - ${dict.siteTitle}`} linkPreview={false}>
+	<main class="not-found">
+		<h1>{dict.notFound.title}</h1>
+		<p class="body">{dict.notFound.body}</p>
+		<div class="links">
+			<a href={`/${lang}/`}>{dict.notFound.home}</a>
+			<a href={`/${lang}/journal`}>{dict.notFound.journal}</a>
+		</div>
+	</main>
+</BaseLayout>
+
+<style>
+	.not-found {
+		max-width: 38rem;
+		margin: 0 auto;
+		padding: var(--space-6) var(--grid-margin) var(--space-12);
+	}
+
+	h1 {
+		font-family: var(--font-serif);
+		font-size: var(--text-h1);
+		margin: 0 0 var(--space-4);
+	}
+
+	.body {
+		font-family: var(--font-serif);
+		font-size: var(--text-body);
+		line-height: var(--leading-body);
+		margin: 0 0 var(--space-6);
+	}
+
+	/* Wraps to a second row before a label would ever have to break. */
+	.links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3);
+	}
+
+	/* Same bordered link as the journal pager. */
+	.links a {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: var(--touch-min);
+		min-width: var(--touch-min);
+		padding: var(--space-2) var(--space-4);
+		border: 1px solid var(--color-border);
+		font-family: var(--font-sans);
+		font-size: var(--text-ui);
+		color: var(--color-text);
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.links a:hover {
+		color: var(--color-link);
+		border-color: var(--color-link);
+	}
+
+	.links a:active {
+		background: var(--color-surface-sunken);
+	}
+</style>

@@ -1,11 +1,18 @@
+import { localMonthKey } from './entryDate';
+
 export interface GroupableEntry {
 	chapterId: number | null;
 	occurredAt: string;
+	/** The entry's own IANA timezone - months follow the local calendar where the entry happened, not UTC. */
+	timezone: string;
 }
 
 export interface MonthGroup<T> {
-	/** 'YYYY-MM' */
+	/** 'YYYY-MM', in the entries' own local time */
 	monthKey: string;
+	year: number;
+	/** 1-12 */
+	month: number;
 	entries: T[];
 }
 
@@ -18,6 +25,10 @@ export interface ChapterGroup<T> {
  * Groups entries by chapter then month, preserving the order chapters and
  * months are first encountered in the input - callers pass entries already
  * sorted the way they want them displayed (e.g. newest first).
+ *
+ * The month is the entry's local one (src/lib/entryDate.ts): an evening on
+ * 31 October in Chapel Hill is already 1 November in UTC, and belongs under
+ * October.
  */
 export function groupEntriesByChapterAndMonth<T extends GroupableEntry>(entries: T[]): ChapterGroup<T>[] {
 	const chapterOrder: Array<number | null> = [];
@@ -25,7 +36,7 @@ export function groupEntriesByChapterAndMonth<T extends GroupableEntry>(entries:
 
 	for (const entry of entries) {
 		const { chapterId } = entry;
-		const monthKey = entry.occurredAt.slice(0, 7);
+		const monthKey = localMonthKey(entry.occurredAt, entry.timezone);
 
 		let byMonth = byChapter.get(chapterId);
 		if (!byMonth) {
@@ -49,6 +60,8 @@ export function groupEntriesByChapterAndMonth<T extends GroupableEntry>(entries:
 			chapterId,
 			months: Array.from(byMonth.entries()).map(([monthKey, monthEntries]) => ({
 				monthKey,
+				year: Number(monthKey.slice(0, 4)),
+				month: Number(monthKey.slice(5, 7)),
 				entries: monthEntries
 			}))
 		};

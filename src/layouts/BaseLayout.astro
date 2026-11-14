@@ -13,9 +13,11 @@ interface Props {
 	description?: string;
 	/** This page's own path (e.g. `/en/lucas/weekend-in-asheville`), for og:url and the RSS/sitemap canonical link. Defaults to no og:url (the homepage doesn't need one). */
 	canonicalPath?: string;
+	/** False leaves out every link-preview tag (og:*, twitter:*). The 404 page sets this: an address that has no page, or a private entry answering as if it had none, must carry nothing to preview (tests/e2e/privacy.spec.ts). */
+	linkPreview?: boolean;
 }
 
-const { lang, title, altPath, description, canonicalPath } = Astro.props;
+const { lang, title, altPath, description, canonicalPath, linkPreview = true } = Astro.props;
 const dict = t(lang);
 const otherLang: Locale = lang === 'en' ? 'da' : 'en';
 const otherLangHref = altPath ?? `/${otherLang}/`;
@@ -31,15 +33,15 @@ const canonicalUrl = canonicalPath ? `${SITE_URL}${canonicalPath}` : undefined;
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="icon" href="/favicon.ico" sizes="48x48" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-		<meta property="og:image" content={`${SITE_URL}/og-image.png`} />
-		<meta property="og:title" content={title} />
-		<meta property="og:type" content="website" />
-		{description && <meta property="og:description" content={description} />}
-		{canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+		{linkPreview && <meta property="og:image" content={`${SITE_URL}/og-image.png`} />}
+		{linkPreview && <meta property="og:title" content={title} />}
+		{linkPreview && <meta property="og:type" content="website" />}
+		{linkPreview && description && <meta property="og:description" content={description} />}
+		{linkPreview && canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
 		{canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
-		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:title" content={title} />
-		{description && <meta name="twitter:description" content={description} />}
+		{linkPreview && <meta name="twitter:card" content="summary_large_image" />}
+		{linkPreview && <meta name="twitter:title" content={title} />}
+		{linkPreview && description && <meta name="twitter:description" content={description} />}
 		<link rel="alternate" type="application/rss+xml" title={dict.siteTitle} href={`/${lang}/rss.xml`} />
 		<meta name="theme-color" content="#F4F2ED" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#10142A" media="(prefers-color-scheme: dark)" />
@@ -88,10 +90,14 @@ const canonicalUrl = canonicalPath ? `${SITE_URL}${canonicalPath}` : undefined;
 		z-index: var(--z-nav);
 	}
 
+	/* On a phone the mark alone is about 30px wide, so the link is padded out
+	   to a full 44px target with the mark centred in it. */
 	.site-title {
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		min-height: var(--touch-min);
+		min-width: var(--touch-min);
 		text-decoration: none;
 	}
 
@@ -112,20 +118,44 @@ const canonicalUrl = canonicalPath ? `${SITE_URL}${canonicalPath}` : undefined;
 		}
 	}
 
+	/* The narrow gap is what keeps the mark, three links and the language pill
+	   on one row at 375px: about 326px of the 343px available in English and
+	   324px in Danish. The wide gap starts at 520px, not at the 480px where the
+	   logo becomes the lockup, because lockup plus wide gap needs about 461px
+	   and a 480px screen only has 448px. */
 	nav {
 		display: flex;
 		align-items: center;
-		gap: var(--space-5);
+		gap: var(--space-3);
 		font-family: var(--font-sans);
-		font-size: var(--text-small);
+		font-size: var(--text-ui);
+	}
+
+	@media (min-width: 520px) {
+		nav {
+			gap: var(--space-5);
+		}
+	}
+
+	/* The narrowest phones get one step less gap and one step smaller text,
+	   which keeps the header on one row from 336px up. At 320px it takes two
+	   rows, as it did before the links grew. */
+	@media (max-width: 359px) {
+		nav {
+			gap: var(--space-2);
+			font-size: var(--text-small);
+		}
 	}
 
 	nav a {
 		color: var(--color-text);
 		text-decoration: none;
 		min-height: var(--touch-min);
+		min-width: var(--touch-min);
 		display: flex;
 		align-items: center;
+		justify-content: center;
+		white-space: nowrap;
 	}
 
 	nav a:hover {

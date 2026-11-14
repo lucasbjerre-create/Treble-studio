@@ -22,7 +22,7 @@ import { resolveEntryText } from '../../../lib/translation';
 
 const { lang: rawLang, person: personSlug, slug } = Astro.params;
 if (!rawLang || !isLocale(rawLang) || !personSlug || !slug) {
-	return new Response('Not found', { status: 404 });
+	return Astro.rewrite('/404');
 }
 const lang = rawLang as Locale;
 const dict = t(lang);
@@ -33,7 +33,7 @@ const now = new Date().toISOString();
 
 const person = await getPersonBySlug(db, 'public', personSlug);
 if (!person) {
-	return new Response('Not found', { status: 404 });
+	return Astro.rewrite('/404');
 }
 const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
 
@@ -50,7 +50,7 @@ if (!entry) {
 		gated = Boolean(familyCheck);
 	}
 	if (!gated) {
-		return new Response('Not found', { status: 404 });
+		return Astro.rewrite('/404');
 	}
 }
 
@@ -118,10 +118,10 @@ if (entry) {
 			</main>
 		) : (
 			<main class="entry-page">
-				{composition === 'short_dispatch' && entryForDisplay && <ShortDispatch entry={entryForDisplay} media={media} />}
-				{composition === 'standard_story' && entryForDisplay && <StandardStory entry={entryForDisplay} media={media} />}
-				{composition === 'photo_sequence' && entryForDisplay && <PhotoSequence entry={entryForDisplay} media={media} />}
-				{composition === 'feature_chapter' && entryForDisplay && <FeatureChapter entry={entryForDisplay} media={media} />}
+				{composition === 'short_dispatch' && entryForDisplay && <ShortDispatch entry={entryForDisplay} media={media} lang={lang} />}
+				{composition === 'standard_story' && entryForDisplay && <StandardStory entry={entryForDisplay} media={media} lang={lang} />}
+				{composition === 'photo_sequence' && entryForDisplay && <PhotoSequence entry={entryForDisplay} media={media} lang={lang} />}
+				{composition === 'feature_chapter' && entryForDisplay && <FeatureChapter entry={entryForDisplay} media={media} lang={lang} />}
 
 				<nav class="adjacent">
 					{

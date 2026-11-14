@@ -1,20 +1,24 @@
 ---
 import Media from '../Media.astro';
+import type { Locale } from '../../i18n/t';
 import type { EntryForDisplay, MediaForDisplay } from '../../lib/composition';
+import { formatEntryDate } from '../../lib/entryDate';
 import { paragraphsFrom } from '../../lib/text';
 
 interface Props {
 	entry: EntryForDisplay;
 	media: MediaForDisplay[];
+	lang: Locale;
 }
 
-const { entry, media } = Astro.props;
+const { entry, media, lang } = Astro.props;
 const paragraphs = paragraphsFrom(entry.bodyMd);
 const firstMedia = media[0];
 const restMedia = media.slice(1);
 ---
 
 <article class="standard-story">
+	<p class="meta"><time datetime={entry.occurredAt}>{formatEntryDate(entry.occurredAt, entry.timezone, lang)}</time></p>
 	<h1 class="title">{entry.title}</h1>
 	{entry.dek && <p class="dek">{entry.dek}</p>}
 	{
@@ -58,6 +62,14 @@ const restMedia = media.slice(1);
 <style>
 	.standard-story {
 		max-width: 38rem;
+	}
+
+	/* The same date line in all four compositions, matching the journal page's. */
+	.meta {
+		font-family: var(--font-sans);
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
+		margin: 0 0 var(--space-2);
 	}
 
 	.title {

@@ -41,6 +41,13 @@ export const da: Dictionary = {
 	common: {
 		noEntries: 'Ikke noget her endnu.'
 	},
+	// Provisional wording - flag for Lucas to adjust if it doesn't sound right.
+	notFound: {
+		title: 'Siden blev ikke fundet',
+		body: 'Der er ingen side på denne adresse.',
+		home: 'Gå til forsiden',
+		journal: 'Læs journalen'
+	},
 	languageToggle: {
 		da: 'Dansk',
 		en: 'English'

@@ -14,12 +14,13 @@ import {
 import { PRIMARY_PERSON_SLUG } from '../../config/site';
 import { isLocale, t, type Locale } from '../../i18n/t';
 import { currentChapter } from '../../lib/chapters';
+import { formatEntryDate } from '../../lib/entryDate';
 import { initialsFor } from '../../lib/initials';
 import { resolveEntryText } from '../../lib/translation';
 
 const { lang: rawLang } = Astro.params;
 if (!rawLang || !isLocale(rawLang)) {
-	return new Response('Not found', { status: 404 });
+	return Astro.rewrite('/404');
 }
 const lang = rawLang as Locale;
 const dict = t(lang);
@@ -29,7 +30,7 @@ const now = new Date().toISOString();
 
 const person = await getPersonBySlug(db, 'public', PRIMARY_PERSON_SLUG);
 if (!person) {
-	return new Response('Not found', { status: 404 });
+	return Astro.rewrite('/404');
 }
 
 const viewer = await resolveViewerForPerson(db, Astro.locals.viewerEmail, person.id);
@@ -82,6 +83,7 @@ const showTreblerPicker = peopleWithEntries.length >= 2;
 			latest ? (
 				<section class="latest">
 					<p class="eyebrow">{dict.home.latestEntry}</p>
+					<p class="meta"><time datetime={latest.occurredAt}>{formatEntryDate(latest.occurredAt, latest.timezone, lang)}</time></p>
 					<a class="latest-link" href={`/${lang}/${person.slug}/${latest.slug}`}>
 						<h2>{resolvedTitle}</h2>
 						{resolvedDek && <p class="dek">{resolvedDek}</p>}
@@ -158,6 +160,14 @@ const showTreblerPicker = peopleWithEntries.length >= 2;
 		margin: 0 0 var(--space-2);
 	}
 
+	/* The entry's date, in the same look as the entry and journal pages. */
+	.meta {
+		font-family: var(--font-sans);
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
+		margin: 0 0 var(--space-2);
+	}
+
 	.latest-link {
 		color: var(--color-text);
 		text-decoration: none;
@@ -175,10 +185,20 @@ const showTreblerPicker = peopleWithEntries.length >= 2;
 		margin: 0 0 var(--space-4);
 	}
 
+	/* The link is a full-height tap target, so its text sits about 11px inside
+	   the box. The margin is one step smaller than before to keep the text
+	   where it was. */
 	.explore-map {
-		margin-top: var(--space-8);
+		margin-top: var(--space-5);
 		font-family: var(--font-sans);
-		font-size: var(--text-small);
+		font-size: var(--text-ui);
+	}
+
+	.explore-map a {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--touch-min);
+		white-space: nowrap;
 	}
 
 	.muted {
