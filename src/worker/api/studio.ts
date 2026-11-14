@@ -15,7 +15,8 @@ import {
 	listPlacesForViewer,
 	listStaysForCrossingSuggestions,
 	personSlugOrEmailInUse,
-	sumMediaBytesForOwner
+	sumMediaBytesForOwner,
+	updateMediaTextForOwner
 } from '../../db/queries';
 import * as schema from '../../db/schema';
 import { suggestCrossings } from '../../lib/crossings';
@@ -518,6 +519,38 @@ studioApi.post('/media/commit', async (c) => {
 		.returning();
 
 	return c.json(row, 201);
+});
+
+const mediaTextSchema = z
+	.object({
+		caption: z.string().trim().max(400).nullable().optional(),
+		altText: z.string().trim().max(400).nullable().optional()
+	})
+	.refine((v) => v.caption !== undefined || v.altText !== undefined, { message: 'Nothing to update' });
+
+// Caption (shown under the photo on the public page) and alt text (what the
+// photo shows, for people who cannot see it) - the only two media columns
+// that can change after commit. A field left out is left alone; null or an
+// empty string clears it, stored as null so the public page never has an
+// empty caption to special-case. Ownership is enforced by the UPDATE's own
+// WHERE inside updateMediaTextForOwner, so someone else's photo and an id
+// that does not exist both come back as the same 404.
+studioApi.patch('/media/:id', async (c) => {
+	const id = Number(c.req.param('id'));
+	if (!Number.isInteger(id)) return c.json({ error: 'Invalid id' }, 400);
+
+	const parsed = mediaTextSchema.safeParse(await c.req.json());
+	if (!parsed.success) return c.json({ error: z.flattenError(parsed.error) }, 400);
+
+	const patch: { caption?: string | null; altText?: string | null } = {};
+	if (parsed.data.caption !== undefined) patch.caption = parsed.data.caption || null;
+	if (parsed.data.altText !== undefined) patch.altText = parsed.data.altText || null;
+
+	const db = getDb();
+	const updated = await updateMediaTextForOwner(db, id, c.get('personId'), patch);
+	if (!updated) return c.json({ error: 'Not found' }, 404);
+
+	return c.json({ ok: true });
 });
 
 studioApi.delete('/media/:id', async (c) => {

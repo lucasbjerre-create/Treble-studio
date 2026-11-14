@@ -410,6 +410,9 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 				onPeopleChanged={(mediaId, people) =>
 					setMedia((prev) => prev.map((m) => (m.id === mediaId ? { ...m, people } : m)))
 				}
+				onTextChanged={(mediaId, patch) =>
+					setMedia((prev) => prev.map((m) => (m.id === mediaId ? { ...m, ...patch } : m)))
+				}
 			/>
 
 			<div className="field-grid">
@@ -431,8 +434,12 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 				{/* Format and Chapter hidden for now, per Lucas's request - format
 				    stays at its default ('moment'), chapterId stays unset (null). */}
 
-				<label className="full">
-					Tag
+				{/* A group with a plain text caption, not a <label>: a label around
+				    several buttons hands every tap on its text, or on the gaps
+				    between the chips, to the first button inside it. Same for
+				    Place and Timezone below. */}
+				<div className="field-group full" role="group" aria-labelledby="entry-tag-label">
+					<span id="entry-tag-label">Tag</span>
 					<div className="bubble-row">
 						{CATEGORIES.map((c) => (
 							<button
@@ -445,10 +452,10 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 							</button>
 						))}
 					</div>
-				</label>
+				</div>
 
-				<label className="full">
-					Place
+				<div className="field-group full" role="group" aria-labelledby="entry-place-label">
+					<span id="entry-place-label">Place</span>
 					{starredPlaces.length > 0 && (
 						<div className="place-presets">
 							{starredPlaces.map((p) => (
@@ -477,6 +484,7 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 						</div>
 					)}
 					<select
+						aria-labelledby="entry-place-label"
 						value={placeId}
 						onChange={(e) => {
 							setPlaceTouched(true);
@@ -509,13 +517,21 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 							))
 						)}
 					</select>
-				</label>
+				</div>
 
 				{placeId !== '' && (
-					<label className="full">
-						Call this place (keeps its location data)
+					<div className="field-group full">
+						{/* The label names the text field only - Rename and Star sit
+						    outside it, so their words are not read out as part of
+						    the field's name. */}
+						<label htmlFor="entry-place-rename">Call this place (keeps its location data)</label>
 						<div className="city-lookup-row">
-							<input value={renameLabel} onChange={(e) => setRenameLabel(e.target.value)} maxLength={200} />
+							<input
+								id="entry-place-rename"
+								value={renameLabel}
+								onChange={(e) => setRenameLabel(e.target.value)}
+								maxLength={200}
+							/>
 							<button
 								type="button"
 								onClick={renamePlace}
@@ -532,7 +548,7 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 							</button>
 						</div>
 						{renameError && <p className="error">{renameError}</p>}
-					</label>
+					</div>
 				)}
 
 				<button
@@ -545,10 +561,11 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 
 				{newPlaceOpen && (
 					<div className="new-place full">
-						<label className="full">
-							City
+						<div className="field-group full">
+							<label htmlFor="entry-new-place-city">City</label>
 							<div className="city-lookup-row">
 								<input
+									id="entry-new-place-city"
 									value={newPlaceQuery}
 									onChange={(e) => {
 										setNewPlaceQuery(e.target.value);
@@ -560,7 +577,7 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 									{newPlaceLookingUp ? 'Looking up…' : 'Look up'}
 								</button>
 							</div>
-						</label>
+						</div>
 						{newPlaceLookupError && <p className="error">{newPlaceLookupError}</p>}
 						{newPlaceResolved && (
 							<label className="full">
@@ -638,8 +655,8 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 					)}
 				</label>
 
-				<label className="full">
-					Timezone
+				<div className="field-group full" role="group" aria-labelledby="entry-timezone-label">
+					<span id="entry-timezone-label">Timezone</span>
 					<div className="timezone-presets">
 						{TIMEZONE_PRESETS.map((preset) => (
 							<button
@@ -656,13 +673,14 @@ export default function EntryEditor({ chapters, initialEntry, initialMedia }: Pr
 						))}
 					</div>
 					<input
+						aria-labelledby="entry-timezone-label"
 						value={timezone}
 						onChange={(e) => {
 							setTimezoneTouched(true);
 							setTimezone(e.target.value);
 						}}
 					/>
-				</label>
+				</div>
 			</div>
 
 			<div className="save-row">

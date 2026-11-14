@@ -272,6 +272,34 @@ export async function findMediaBySha256ForOwner(db: Database, ownerId: number, s
 }
 
 /**
+ * Studio-only, owner-scoped: sets a photo's caption and/or alt text. The
+ * ownership check is the UPDATE's own WHERE (media.id AND media.owner_id),
+ * never a separate SELECT first, so one person's call can never land on
+ * another person's row. Only the keys present in patch are written - a key
+ * left out keeps that column as it was, null clears it. Returns false when
+ * no row matched (no such media, or not this owner's), and also for a patch
+ * with neither key, which has nothing to write.
+ */
+export async function updateMediaTextForOwner(
+	db: Database,
+	mediaId: number,
+	ownerId: number,
+	patch: { caption?: string | null; altText?: string | null }
+): Promise<boolean> {
+	const values: { caption?: string | null; altText?: string | null } = {};
+	if (patch.caption !== undefined) values.caption = patch.caption;
+	if (patch.altText !== undefined) values.altText = patch.altText;
+	if (values.caption === undefined && values.altText === undefined) return false;
+
+	const result = await db
+		.update(schema.media)
+		.set(values)
+		.where(and(eq(schema.media.id, mediaId), eq(schema.media.ownerId, ownerId)))
+		.returning({ id: schema.media.id });
+	return result.length > 0;
+}
+
+/**
  * Studio-only, like findMediaBySha256ForOwner above: media_people is never
  * selected for a public/family viewer anywhere, so there's no viewer
  * argument to get wrong here.

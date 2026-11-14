@@ -311,7 +311,7 @@ export default function BulkUpload() {
 					status: 'draft',
 					occurredAtUncertain: !result.dateDetected
 				},
-				initialMedia: [{ ...result.media, people: [] }]
+				initialMedia: [{ ...result.media, altText: null, people: [] }]
 			});
 		}
 		return result;

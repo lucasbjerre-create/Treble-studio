@@ -26,63 +26,225 @@
 	opacity: 0;
 }
 
+/* Wraps instead of squeezing: a long file name plus an error and its Retry
+   button do not fit on one line at 375px. */
 .file-row {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: var(--space-3);
+	gap: var(--space-2) var(--space-3);
 	min-height: var(--touch-min);
+}
+
+.file-row span {
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
 .file-row .error {
 	color: var(--color-error);
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--space-2);
 }
 
 .file-row button {
-	min-height: 36px;
+	min-width: var(--touch-min);
+	min-height: var(--touch-min);
 	padding: 0 var(--space-3);
 	cursor: pointer;
+	white-space: nowrap;
 }
 
+/* One photo per row: thumbnail with its remove control beside it, then the
+   caption and alt text fields full width underneath, then people tags. */
 .media-list {
 	display: flex;
-	flex-wrap: wrap;
-	gap: var(--space-2);
+	flex-direction: column;
+	gap: var(--space-4);
 	list-style: none;
 	margin: 0;
 	padding: 0;
 }
 
-.media-list li {
-	position: relative;
+.media-item {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	min-width: 0;
 }
 
-.media-list img {
-	width: 96px;
-	height: 96px;
+.media-item + .media-item {
+	padding-top: var(--space-4);
+	border-top: var(--border-hairline);
+}
+
+.media-item-head {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-3);
+	min-width: 0;
+}
+
+/* A class, not a bare `img` selector: the people tagger further down the
+   same list item has a full-width image of its own. */
+.media-thumb {
+	flex: none;
+	width: var(--space-24);
+	height: var(--space-24);
 	object-fit: cover;
 	display: block;
 }
 
-.media-list .remove {
-	position: absolute;
-	top: -8px;
-	right: -8px;
-	width: 28px;
-	height: 28px;
-	min-height: 0;
-	padding: 0;
+/* ---- buttons added per photo: remove, its confirm pair, and Retry ---- */
+
+.photo-remove,
+.photo-remove-confirm button,
+.media-text-status button {
+	flex: none;
+	min-width: var(--touch-min);
+	min-height: var(--touch-min);
+	padding: 0 var(--space-3);
 	border: 1px solid var(--color-border);
-	border-radius: var(--radius-pill);
+	border-radius: var(--radius-xs);
 	background: var(--color-surface);
-	color: var(--color-error);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-small);
+	white-space: nowrap;
 	cursor: pointer;
-	line-height: 1;
 }
 
-.media-list .remove:disabled {
+@media (hover: hover) {
+	.photo-remove:hover,
+	.photo-remove-confirm button:hover,
+	.media-text-status button:hover {
+		background: var(--color-surface-sunken);
+	}
+}
+
+.photo-remove:active,
+.photo-remove-confirm button:active,
+.media-text-status button:active {
+	border-color: var(--color-border-strong);
+}
+
+/* The question takes a line of its own, with Remove and Cancel under it, so
+   the pair never has to squeeze in beside the thumbnail at 375px. */
+.photo-remove-confirm {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+	flex: 1;
+	min-width: 0;
+}
+
+/* As tall as the button it replaces, which puts Remove and Cancel entirely
+   below where that button was: a double tap on "Remove photo" lands on this
+   text, never on Remove. */
+.photo-remove-question {
+	display: flex;
+	align-items: center;
+	flex-basis: 100%;
+	min-height: var(--touch-min);
+	color: var(--color-text);
+}
+
+/* The one button that deletes something. */
+.photo-remove-confirm .photo-remove-yes {
+	border-color: var(--color-error);
+	background: var(--color-error-bg);
+	color: var(--color-error);
+}
+
+@media (hover: hover) {
+	.photo-remove-confirm .photo-remove-yes:hover {
+		background: color-mix(in srgb, var(--color-error) 18%, var(--color-error-bg));
+	}
+}
+
+/* After the hover and danger rules so a button that is working shows
+   neither. */
+.photo-remove-confirm button:disabled,
+.photo-remove-confirm .photo-remove-yes:disabled {
+	border-color: var(--color-border);
+	background: var(--color-surface);
 	color: var(--color-text-muted);
 	cursor: default;
+}
+
+.photo-remove-error {
+	flex-basis: 100%;
+	margin: 0;
+	color: var(--color-error);
+}
+
+/* ---- caption and alt text ---- */
+
+.media-text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	min-width: 0;
+}
+
+.media-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	min-width: 0;
+}
+
+.media-field label {
+	color: var(--color-text-muted);
+}
+
+.media-field textarea {
+	width: 100%;
+	min-width: 0;
+	min-height: var(--touch-min);
+	padding: var(--space-2);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-xs);
+	background: var(--color-surface);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+	line-height: var(--leading-ui);
+	resize: vertical;
+}
+
+.media-field textarea:focus-visible {
+	border-color: var(--color-focus);
+}
+
+.media-field-help {
+	margin: 0;
+	color: var(--color-text-muted);
+	font-size: var(--text-micro);
+}
+
+/* min-height keeps one line free even when there is nothing to say, so
+   "Saving…" appearing never pushes down what is below it. */
+.media-text-status {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: var(--space-6);
+}
+
+.media-text-message {
+	min-width: 0;
+	color: var(--color-text-muted);
+}
+
+.media-text-message.saved {
+	color: var(--color-success);
+}
+
+.media-text-message.failed {
+	color: var(--color-error);
 }

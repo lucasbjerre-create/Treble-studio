@@ -6,13 +6,22 @@
 	max-width: 36rem;
 }
 
+/* minmax(0, 1fr), not a bare 1fr: a bare 1fr can never be narrower than its
+   widest child's own minimum, so one field that would not shrink made every
+   field in the grid (and the page) wider than a phone. */
 .field-grid {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 	gap: var(--space-3) var(--space-4);
 }
 
-.field-grid label {
+/* .field-group is the same box as a label, for a field that holds more than
+   one control (a row of chips, or an input with buttons beside it). Its
+   caption is a <span> or a <label for> inside it - never a <label> wrapped
+   around the controls, which would pass every tap on the caption or the gaps
+   to the first control. */
+.field-grid label,
+.field-grid .field-group {
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-1);
@@ -20,7 +29,8 @@
 	color: var(--color-text-muted);
 }
 
-.field-grid label.full {
+.field-grid label.full,
+.field-grid .field-group.full {
 	grid-column: 1 / -1;
 }
 
@@ -169,13 +179,18 @@
 	border-radius: var(--radius-sm);
 }
 
+/* Wraps: the text field, Rename and Star need about 440px side by side,
+   which a 375px phone does not have. The field keeps at least 10rem and the
+   buttons drop to a second row when they no longer fit beside it. */
 .city-lookup-row {
 	display: flex;
+	flex-wrap: wrap;
 	gap: var(--space-2);
 }
 
 .city-lookup-row input {
-	flex: 1;
+	flex: 1 1 10rem;
+	min-width: 0;
 	min-height: var(--touch-min);
 	padding: 0 var(--space-2);
 	border: 1px solid var(--color-border);
@@ -354,7 +369,7 @@
 	.field-grid,
 	.new-place,
 	.lang-preview {
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1fr);
 	}
 }
 
